@@ -1,0 +1,49 @@
+{
+  "income": 30000,
+  "notif": {
+    "enabled": false
+  },
+  "notifLog": {},
+  "bills": [
+    {
+      "id": 1,
+      "name": "iPhone 15 ผ่อน 0%",
+      "type": "credit",
+      "monthly": 3200,
+      "total": 10,
+      "paid": 3,
+      "due": 25,
+      "principal": 32000
+    },
+    {
+      "id": 2,
+      "name": "มอเตอร์ไซค์ Honda Wave",
+      "type": "loan",
+      "monthly": 2500,
+      "total": 20,
+      "paid": 8,
+      "due": 5,
+      "principal": 41000
+    },
+    {
+      "id": 3,
+      "name": "บัตรกดเงินสด FirstChoice",
+      "type": "cash",
+      "monthly": 1500,
+      "total": 10,
+      "paid": 2,
+      "due": 15,
+      "principal": 13000
+    },
+    {
+      "id": 4,
+      "name": "โซฟา Index ผ่อน 6 ด.",
+      "type": "credit",
+      "monthly": 2000,
+      "total": 6,
+      "paid": 1,
+      "due": 28,
+      "principal": 11000
+    }
+  ]
+}

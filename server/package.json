@@ -1,0 +1,14 @@
+{
+  "name": "oommoney-push-server",
+  "version": "1.0.0",
+  "description": "Web Push backend for น้องออม · Money Coach (serves the PWA + sends real push notifications)",
+  "private": true,
+  "main": "push-server.js",
+  "scripts": {
+    "start": "node push-server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "web-push": "^3.6.7"
+  }
+}

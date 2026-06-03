@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+server/node_modules/
+
+# server secrets & runtime data (อย่า commit ขึ้น git!)
+server/data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

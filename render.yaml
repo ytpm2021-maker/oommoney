@@ -1,0 +1,18 @@
+# Render Blueprint — deploy น้องออม push server ด้วยคลิกเดียว
+# (New → Blueprint → เลือก repo นี้ → กรอก VAPID keys → Apply)
+services:
+  - type: web
+    name: oommoney
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: node push-server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: VAPID_PUBLIC_KEY
+        sync: false        # กรอกตอน deploy (จาก server/data/vapid.json หรือที่ generate ไว้)
+      - key: VAPID_PRIVATE_KEY
+        sync: false        # ความลับ — อย่าเผยแพร่
+      - key: VAPID_CONTACT
+        sync: false        # เช่น mailto:you@email.com

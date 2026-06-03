@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>น้องออม · Money Coach</title>
+<meta name="description" content="ผู้ช่วยดูแลรายการผ่อน เตือนชำระ และตรวจสุขภาพการเงินของคุณ แบบน่ารักๆ" />
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#7BD8A8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="น้องออม" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+<!-- Fonts (cute rounded Thai) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* =====================================================================
+   DESIGN TOKENS — น้องออม (Mint–Sky Pastel · ตะมุตะมิ)
+   ===================================================================== */
+:root{
+  /* Brand */
+  --mint:        #7BD8A8;
+  --mint-deep:   #4FBF8A;
+  --mint-soft:   #D4F3E4;
+  --mint-tint:   #EAF9F1;
+  --sky:         #AED2FF;
+  --sky-deep:    #6FA8F0;
+  --sky-soft:    #E2EFFF;
+  --lav:         #C9B6FF;
+  --peach:       #FFC9A8;
+
+  /* Semantic health */
+  --good:        #5FCF97;
+  --warn:        #FFC94D;
+  --danger:      #FF8B94;
+
+  /* Neutral / text */
+  --ink:         #38554A;
+  --ink-soft:    #7E988D;
+  --ink-faint:   #A9BEB6;
+  --line:        #E9F1ED;
+  --card:        #FFFFFF;
+
+  /* Surface gradient */
+  --bg-1:        #F1FBF6;
+  --bg-2:        #EAF4FF;
+
+  /* Radius */
+  --r-sm: 12px;  --r-md: 18px;  --r-lg: 26px;  --r-xl: 34px;  --r-pill: 999px;
+
+  /* Spacing scale (4pt) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px;
+
+  /* Elevation */
+  --sh-1: 0 2px 8px rgba(79,191,138,.08);
+  --sh-2: 0 8px 22px rgba(79,191,138,.14);
+  --sh-3: 0 14px 36px rgba(79,191,138,.20);
+
+  /* Motion */
+  --ease-jelly: cubic-bezier(.34,1.56,.64,1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:'Mali',system-ui,sans-serif;
+  color:var(--ink);
+  background:linear-gradient(165deg,var(--bg-1),var(--bg-2));
+  overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,select{font-family:inherit;}
+
+/* App shell sized for iPhone 12 (390×844) but responsive */
+#app{
+  position:relative;
+  width:100%;
+  max-width:430px;
+  height:100dvh;
+  margin:0 auto;
+  background:linear-gradient(170deg,var(--bg-1) 0%, var(--bg-2) 100%);
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(79,191,138,.12);
+}
+#app::before,#app::after{
+  content:"";position:absolute;border-radius:50%;filter:blur(2px);opacity:.5;z-index:0;
+  animation:float 7s ease-in-out infinite;
+}
+#app::before{width:170px;height:170px;background:var(--mint-soft);top:-50px;right:-40px;}
+#app::after{width:150px;height:150px;background:var(--sky-soft);bottom:120px;left:-50px;animation-delay:-3s;}
+
+/* =====================================================================
+   SCROLL AREA + SCREENS
+   ===================================================================== */
+.scroll{
+  position:absolute;inset:0;
+  padding:calc(var(--safe-top) + 8px) 18px calc(96px + var(--safe-bottom));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:1;
+}
+.scroll::-webkit-scrollbar{display:none;}
+.screen{display:none;animation:rise .42s var(--ease-jelly);}
+.screen.active{display:block;}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
+
+/* =====================================================================
+   HEADER
+   ===================================================================== */
+.topbar{display:flex;align-items:center;gap:12px;margin:4px 2px 18px;}
+.topbar .hi{flex:1;}
+.topbar .hi .sub{font-size:13px;color:var(--ink-soft);font-weight:500;}
+.topbar .hi .name{font-family:'Itim';font-size:22px;line-height:1.1;}
+.bell{
+  position:relative;width:46px;height:46px;border-radius:var(--r-md);
+  background:var(--card);box-shadow:var(--sh-1);display:grid;place-items:center;font-size:20px;
+  transition:transform .2s var(--ease-jelly);
+}
+.bell:active{transform:scale(.9);}
+.bell .dot{position:absolute;top:9px;right:10px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;}
+
+.page-title{font-family:'Itim';font-size:26px;margin:2px 2px 4px;}
+.page-sub{color:var(--ink-soft);font-size:13.5px;margin:0 2px 18px;font-weight:500;}
+
+/* =====================================================================
+   MASCOT — น้องออม (CSS coin character)
+   ===================================================================== */
+.mascot{position:relative;width:84px;height:84px;flex:none;animation:bob 3.2s ease-in-out infinite;}
+.mascot .coin{
+  position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%, #BFEFD7, var(--mint) 70%);
+  box-shadow:inset 0 -7px 0 rgba(79,191,138,.28), var(--sh-2);
+  border:4px solid #fff;
+}
+.mascot .coin::before{content:"฿";position:absolute;inset:0;display:grid;place-items:center;
+  font-family:'Itim';font-size:14px;color:#fff;opacity:.55;transform:translateY(-22px);}
+.mascot .eye{position:absolute;top:38%;width:9px;height:11px;background:#38554A;border-radius:50%;}
+.mascot .eye.l{left:30%;} .mascot .eye.r{right:30%;}
+.mascot .eye::after{content:"";position:absolute;top:1px;left:1px;width:3px;height:3px;background:#fff;border-radius:50%;}
+.mascot .blush{position:absolute;top:50%;width:12px;height:8px;background:#FF9FB6;border-radius:50%;opacity:.6;}
+.mascot .blush.l{left:22%;} .mascot .blush.r{right:22%;}
+.mascot .mouth{position:absolute;top:55%;left:50%;width:16px;height:9px;border:2.5px solid #38554A;border-top:none;
+  border-radius:0 0 16px 16px;transform:translateX(-50%);}
+.mascot[data-mood="happy"] .coin{background:radial-gradient(circle at 34% 30%,#C9F4DD,var(--mint) 70%);}
+.mascot[data-mood="warn"] .coin{background:radial-gradient(circle at 34% 30%,#FFE9B8,var(--warn) 75%);box-shadow:inset 0 -7px 0 rgba(214,160,40,.3),var(--sh-2);}
+.mascot[data-mood="warn"] .mouth{width:14px;height:7px;border-radius:0 0 14px 14px;top:57%;}
+.mascot[data-mood="sad"] .coin{background:radial-gradient(circle at 34% 30%,#FFD2D6,var(--danger) 75%);box-shadow:inset 0 -7px 0 rgba(214,90,100,.3),var(--sh-2);}
+.mascot[data-mood="sad"] .mouth{border-top:2.5px solid #38554A;border-bottom:none;border-radius:16px 16px 0 0;top:60%;height:7px;}
+.mascot[data-mood="sad"] .eye{height:9px;}
+
+/* =====================================================================
+   CARDS
+   ===================================================================== */
+.card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:18px;margin-bottom:16px;position:relative;}
+.card.pop{box-shadow:var(--sh-2);}
+
+.health-card{background:linear-gradient(150deg,#fff, #F4FCF8);border-radius:var(--r-xl);padding:22px 20px;
+  box-shadow:var(--sh-2);margin-bottom:18px;text-align:center;overflow:hidden;position:relative;}
+.health-card .ring-wrap{position:relative;width:180px;height:180px;margin:6px auto 8px;}
+.health-card svg{transform:rotate(-90deg);}
+.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.gauge-center .score{font-family:'Itim';font-size:52px;line-height:.9;}
+.gauge-center .score small{font-size:20px;}
+.gauge-center .lbl{font-size:12px;color:var(--ink-soft);font-weight:600;letter-spacing:.5px;}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r-pill);
+  font-weight:700;font-size:14px;margin-top:2px;}
+.speech{margin-top:12px;background:var(--mint-tint);border-radius:var(--r-md);padding:11px 14px;font-size:13.5px;
+  color:var(--ink);position:relative;font-weight:500;}
+.speech::before{content:"";position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(45deg);
+  width:14px;height:14px;background:var(--mint-tint);border-radius:3px;}
+
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.stat{background:var(--card);border-radius:var(--r-md);padding:13px 8px;text-align:center;box-shadow:var(--sh-1);}
+.stat .ic{font-size:20px;}
+.stat .v{font-family:'Itim';font-size:17px;margin-top:3px;line-height:1;}
+.stat .k{font-size:11px;color:var(--ink-soft);margin-top:3px;font-weight:600;}
+
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin:4px 4px 12px;}
+.sec-head h3{font-family:'Itim';font-size:18px;margin:0;}
+.sec-head a{font-size:12.5px;color:var(--mint-deep);font-weight:700;}
+
+/* =====================================================================
+   INSTALLMENT ITEM CARD
+   ===================================================================== */
+.bill{display:flex;gap:13px;align-items:flex-start;background:var(--card);border-radius:var(--r-lg);
+  padding:15px;box-shadow:var(--sh-1);margin-bottom:13px;transition:transform .18s var(--ease-jelly);}
+.bill:active{transform:scale(.98);}
+.bill .ava{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:22px;flex:none;}
+.bill .mid{flex:1;min-width:0;}
+.bill .mid .nm{font-weight:700;font-size:15px;display:flex;align-items:center;min-width:0;}
+.bill .mid .nm .nm-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.bill .mid .ty{font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-top:1px;}
+.bar{height:8px;background:var(--mint-tint);border-radius:8px;margin-top:9px;overflow:hidden;}
+.bar i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--mint),var(--mint-deep));
+  transition:width .8s var(--ease-jelly);}
+.bill .meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft);margin-top:6px;font-weight:600;}
+.bill .amt{text-align:right;flex:none;}
+.bill .amt .a{font-family:'Itim';font-size:17px;color:var(--mint-deep);}
+.bill .amt .due{font-size:10.5px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+.bill .amt .due.soon{color:var(--danger);}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 14px;margin:0 -2px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex:none;padding:8px 15px;border-radius:var(--r-pill);background:var(--card);box-shadow:var(--sh-1);
+  font-size:13px;font-weight:600;color:var(--ink-soft);transition:.2s var(--ease-jelly);}
+.chip.on{background:var(--mint);color:#fff;box-shadow:var(--sh-2);}
+.chip:active{transform:scale(.93);}
+.chip.tag{background:var(--sky-soft);color:var(--sky-deep);}
+.chip.tag.on{background:var(--sky-deep);color:#fff;}
+.tagchip{display:inline-block;background:var(--sky-soft);color:var(--sky-deep);font-size:10.5px;font-weight:700;
+  padding:2px 8px;border-radius:var(--r-pill);margin-left:6px;vertical-align:middle;}
+.tag-sug{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+.tag-sug .s{padding:6px 13px;border-radius:var(--r-pill);background:var(--mint-tint);color:var(--mint-deep);
+  font-size:12.5px;font-weight:700;transition:transform .15s var(--ease-jelly);}
+.tag-sug .s:active{transform:scale(.92);}
+
+/* =====================================================================
+   FORM
+   ===================================================================== */
+.field{margin-bottom:15px;}
+.field label{display:block;font-size:13px;font-weight:700;margin:0 4px 7px;color:var(--ink);}
+.field .inp,.seg{width:100%;background:var(--card);border:2px solid var(--line);border-radius:var(--r-md);
+  padding:14px 16px;font-size:15px;color:var(--ink);font-weight:600;transition:.2s;outline:none;}
+.field .inp:focus{border-color:var(--mint);box-shadow:0 0 0 4px var(--mint-tint);}
+.field .inp::placeholder{color:var(--ink-faint);font-weight:500;}
+.with-unit{position:relative;}
+.with-unit .u{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--ink-soft);font-weight:700;font-size:14px;}
+.seg-row{display:flex;flex-wrap:wrap;gap:8px;}
+.seg-opt{flex:1;min-width:calc(50% - 4px);padding:12px;border-radius:var(--r-md);background:var(--card);
+  border:2px solid var(--line);text-align:center;font-size:13.5px;font-weight:700;color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center;gap:6px;transition:.2s var(--ease-jelly);}
+.seg-opt.on{border-color:var(--mint);background:var(--mint-tint);color:var(--mint-deep);}
+.seg-opt:active{transform:scale(.95);}
+
+.btn{width:100%;padding:16px;border-radius:var(--r-md);background:linear-gradient(135deg,var(--mint),var(--mint-deep));
+  color:#fff;font-weight:700;font-size:16px;box-shadow:var(--sh-2);transition:transform .15s var(--ease-jelly);
+  display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn:active{transform:scale(.96);}
+.btn.ghost{background:var(--card);color:var(--mint-deep);box-shadow:var(--sh-1);}
+.btn.sky{background:linear-gradient(135deg,var(--sky),var(--sky-deep));}
+
+/* =====================================================================
+   SIMULATOR RESULT
+   ===================================================================== */
+.verdict{border-radius:var(--r-xl);padding:22px 20px;text-align:center;color:#fff;box-shadow:var(--sh-2);margin-bottom:16px;
+  animation:pop .5s var(--ease-jelly);}
+.verdict.go{background:linear-gradient(150deg,#6FE0A8,#42B783);}
+.verdict.care{background:linear-gradient(150deg,#FFD66B,#F0AE2E);}
+.verdict.no{background:linear-gradient(150deg,#FF9FA8,#F06672);}
+.verdict .big{font-family:'Itim';font-size:26px;margin:8px 0 4px;}
+.verdict .why{font-size:14px;opacity:.95;font-weight:500;line-height:1.5;}
+.compare{display:flex;gap:12px;margin-bottom:16px;}
+.compare .col{flex:1;background:var(--card);border-radius:var(--r-lg);padding:14px;text-align:center;box-shadow:var(--sh-1);}
+.compare .col .t{font-size:12px;color:var(--ink-soft);font-weight:700;}
+.compare .col .n{font-family:'Itim';font-size:30px;margin-top:4px;}
+.compare .col .d{font-size:11px;color:var(--ink-soft);font-weight:600;}
+.compare .arr{align-self:center;font-size:22px;color:var(--ink-faint);}
+
+.rem{display:flex;align-items:center;gap:13px;background:var(--card);border-radius:var(--r-lg);padding:15px;
+  box-shadow:var(--sh-1);margin-bottom:12px;}
+.rem .day{width:54px;height:54px;border-radius:16px;background:var(--sky-soft);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;flex:none;}
+.rem .day .d{font-family:'Itim';font-size:22px;line-height:1;color:var(--sky-deep);}
+.rem .day .m{font-size:10px;color:var(--ink-soft);font-weight:700;}
+.rem .day.soon{background:#FFE6E8;} .rem .day.soon .d{color:var(--danger);}
+.rem .info{flex:1;min-width:0;}
+.rem .info .n{font-weight:700;font-size:14.5px;}
+.rem .info .s{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+.rem .info .s.soon{color:var(--danger);}
+.rem .amt2{font-family:'Itim';font-size:16px;color:var(--mint-deep);flex:none;}
+
+.empty{text-align:center;padding:40px 20px;color:var(--ink-soft);}
+.empty .mascot{margin:0 auto 16px;}
+.empty p{font-size:14px;font-weight:600;}
+
+.tog{width:48px;height:28px;border-radius:14px;background:var(--line);position:relative;transition:.25s;flex:none;}
+.tog.on{background:var(--mint);}
+.tog i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;
+  box-shadow:0 2px 4px rgba(0,0,0,.15);transition:.25s var(--ease-jelly);}
+.tog.on i{left:23px;}
+.row-set{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line);}
+.row-set:last-child{border-bottom:none;}
+.row-set .ic{width:40px;height:40px;border-radius:12px;background:var(--mint-tint);display:grid;place-items:center;font-size:19px;flex:none;}
+.row-set .tx{flex:1;}
+.row-set .tx .a{font-weight:700;font-size:14.5px;}
+.row-set .tx .b{font-size:12px;color:var(--ink-soft);font-weight:600;}
+
+/* =====================================================================
+   DETAIL SCREEN
+   ===================================================================== */
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;color:var(--mint-deep);
+  background:var(--card);padding:9px 16px;border-radius:var(--r-pill);box-shadow:var(--sh-1);margin:2px 0 16px;
+  transition:transform .15s var(--ease-jelly);}
+.back-btn:active{transform:scale(.94);}
+.detail-hero{background:linear-gradient(150deg,#fff,#F4FCF8);border-radius:var(--r-xl);padding:22px 20px;
+  box-shadow:var(--sh-2);text-align:center;margin-bottom:16px;}
+.detail-hero .ava{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:32px;margin:0 auto 10px;}
+.detail-hero .nm{font-family:'Itim';font-size:22px;}
+.detail-hero .ty{font-size:13px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+.detail-hero .big-amt{font-family:'Itim';font-size:40px;color:var(--mint-deep);margin-top:12px;line-height:1;}
+.detail-hero .big-amt span{font-size:16px;color:var(--ink-soft);}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.kv .cell{background:var(--card);border-radius:var(--r-md);padding:13px;box-shadow:var(--sh-1);text-align:center;}
+.kv .cell .k{font-size:11.5px;color:var(--ink-soft);font-weight:700;}
+.kv .cell .v{font-family:'Itim';font-size:19px;margin-top:3px;}
+.due-card{display:flex;align-items:center;gap:13px;background:var(--card);border-radius:var(--r-lg);padding:15px;
+  box-shadow:var(--sh-1);margin-bottom:16px;}
+.due-card .day{width:54px;height:54px;border-radius:16px;background:var(--sky-soft);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;flex:none;}
+.due-card .day .d{font-family:'Itim';font-size:22px;line-height:1;color:var(--sky-deep);}
+.due-card .day .m{font-size:10px;color:var(--ink-soft);font-weight:700;}
+.due-card .day.soon{background:#FFE6E8;} .due-card .day.soon .d{color:var(--danger);}
+.due-card .info .a{font-weight:700;font-size:14.5px;}
+.due-card .info .b{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+.due-card .info .b.soon{color:var(--danger);}
+.done-banner{background:linear-gradient(135deg,#6FE0A8,#42B783);color:#fff;border-radius:var(--r-md);padding:18px;
+  text-align:center;font-weight:700;font-size:16px;box-shadow:var(--sh-2);}
+.warn-banner{background:linear-gradient(135deg,#FFB0B6,#F0707A);color:#fff;border-radius:var(--r-md);padding:16px;
+  text-align:center;font-weight:700;font-size:14px;box-shadow:var(--sh-2);line-height:1.6;margin-bottom:16px;}
+
+/* =====================================================================
+   BOTTOM NAV + FAB
+   ===================================================================== */
+.nav{position:absolute;left:0;right:0;bottom:0;z-index:30;height:calc(72px + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);background:rgba(255,255,255,.86);backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);display:flex;align-items:stretch;}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--ink-faint);font-size:10.5px;font-weight:700;transition:.2s;}
+.nav button .ic{font-size:21px;transition:transform .25s var(--ease-jelly);}
+.nav button.on{color:var(--mint-deep);}
+.nav button.on .ic{transform:translateY(-2px) scale(1.12);}
+.nav .spacer{flex:1;}
+.fab{position:absolute;left:calc(50% - 31px);top:-26px;width:62px;height:62px;border-radius:50%;
+  background:linear-gradient(135deg,var(--mint),var(--mint-deep));box-shadow:0 8px 20px rgba(79,191,138,.45);
+  display:grid;place-items:center;font-size:30px;color:#fff;border:5px solid #fff;z-index:31;
+  transition:transform .2s var(--ease-jelly);animation:bob 3s ease-in-out infinite;}
+.fab:active{transform:scale(.9) rotate(90deg);}
+
+/* =====================================================================
+   MODAL (add sheet)
+   ===================================================================== */
+.sheet-back{position:absolute;inset:0;z-index:40;background:rgba(56,85,74,.35);backdrop-filter:blur(2px);
+  display:none;align-items:flex-end;}
+.sheet-back.show{display:flex;animation:fade .25s;}
+.sheet{width:100%;max-height:92%;background:linear-gradient(180deg,#fff,#F6FCF9);border-radius:var(--r-xl) var(--r-xl) 0 0;
+  padding:8px 20px calc(24px + var(--safe-bottom));overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,.15);
+  animation:slideup .35s var(--ease-jelly);}
+.sheet::-webkit-scrollbar{display:none;}
+.grip{width:44px;height:5px;border-radius:5px;background:var(--line);margin:8px auto 14px;}
+.sheet h2{font-family:'Itim';font-size:22px;text-align:center;margin:0 0 4px;}
+.sheet .lead{text-align:center;color:var(--ink-soft);font-size:13px;font-weight:500;margin:0 0 18px;}
+
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);z-index:60;
+  background:var(--ink);color:#fff;padding:12px 20px;border-radius:var(--r-pill);font-size:13.5px;font-weight:600;
+  box-shadow:var(--sh-3);opacity:0;pointer-events:none;transition:.35s var(--ease-jelly);display:flex;gap:8px;align-items:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.install{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,var(--sky-soft),#fff);
+  border-radius:var(--r-lg);padding:14px;box-shadow:var(--sh-1);margin-bottom:16px;}
+.install .em{font-size:30px;}
+.install .tx{flex:1;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.4;}
+.install .tx b{color:var(--sky-deep);}
+
+/* =====================================================================
+   ANIMATIONS
+   ===================================================================== */
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-16px);}}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-7px) rotate(2deg);}}
+@keyframes pop{0%{transform:scale(.8);opacity:0;}60%{transform:scale(1.04);}100%{transform:scale(1);opacity:1;}}
+@keyframes fade{from{opacity:0;}to{opacity:1;}}
+@keyframes slideup{from{transform:translateY(100%);}to{transform:translateY(0);}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="scroll" id="scroll">
+
+    <!-- ============ HOME ============ -->
+    <section class="screen active" id="screen-home">
+      <div class="topbar">
+        <div class="mascot" id="homeMascot" data-mood="happy">
+          <div class="coin"></div><div class="eye l"></div><div class="eye r"></div>
+          <div class="blush l"></div><div class="blush r"></div><div class="mouth"></div>
+        </div>
+        <div class="hi">
+          <div class="sub">สวัสดีตอน<span id="greet">เช้า</span> 🌿</div>
+          <div class="name">วันนี้การเงินเป็นไงบ้าง?</div>
+        </div>
+        <button class="bell" onclick="go('reminders')">🔔<span class="dot" id="bellDot">0</span></button>
+      </div>
+
+      <div class="health-card">
+        <div class="ring-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            <circle cx="90" cy="90" r="78" fill="none" stroke="#EAF6F0" stroke-width="16"/>
+            <circle id="gauge" cx="90" cy="90" r="78" fill="none" stroke="var(--good)" stroke-width="16"
+                    stroke-linecap="round" stroke-dasharray="490" stroke-dashoffset="490"
+                    style="transition:stroke-dashoffset 1.1s var(--ease-jelly),stroke .5s;"/>
+          </svg>
+          <div class="gauge-center">
+            <div class="score" id="scoreNum">0<small>%</small></div>
+            <div class="lbl">คะแนนสุขภาพ</div>
+          </div>
+        </div>
+        <div class="status-pill" id="statusPill">กำลังคำนวณ…</div>
+        <div class="speech" id="coachMsg">น้องออมกำลังตรวจสุขภาพการเงินให้น้า~</div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="ic">💰</div><div class="v" id="sIncome">฿0</div><div class="k">รายรับ/เดือน</div></div>
+        <div class="stat"><div class="ic">💳</div><div class="v" id="sPay">฿0</div><div class="k">ผ่อนรวม/เดือน</div></div>
+        <div class="stat"><div class="ic">🪙</div><div class="v" id="sLeft">฿0</div><div class="k">เหลือใช้</div></div>
+      </div>
+
+      <div id="trendCard"></div>
+      <div id="summaryCard"></div>
+
+      <div class="sec-head"><h3>📅 ใกล้ครบกำหนด</h3><a onclick="go('reminders')">ดูทั้งหมด</a></div>
+      <div id="homeDue"></div>
+    </section>
+
+    <!-- ============ DETAIL ============ -->
+    <section class="screen" id="screen-detail">
+      <div id="detailWrap"></div>
+    </section>
+
+    <!-- ============ LIST ============ -->
+    <section class="screen" id="screen-list">
+      <div class="page-title">📋 รายการผ่อนของฉัน</div>
+      <div class="page-sub">รวมทุกบัตร ทุกสินเชื่อ ไว้ที่เดียว</div>
+      <div class="chips" id="chips"></div>
+      <div id="listWrap"></div>
+    </section>
+
+    <!-- ============ SIMULATOR ============ -->
+    <section class="screen" id="screen-sim">
+      <div style="display:flex;gap:14px;align-items:center;margin:2px 2px 16px;">
+        <div class="mascot" data-mood="happy" style="width:64px;height:64px;">
+          <div class="coin"></div><div class="eye l"></div><div class="eye r"></div>
+          <div class="blush l"></div><div class="blush r"></div><div class="mouth"></div>
+        </div>
+        <div>
+          <div class="page-title" style="margin:0;">🔮 ลองก่อนซื้อ</div>
+          <div class="page-sub" style="margin:2px 0 0;">อยากผ่อนของใหม่? ลองดูก่อนว่าไหวมั้ย!</div>
+        </div>
+      </div>
+
+      <div class="card pop">
+        <div class="field">
+          <label>อยากซื้ออะไร?</label>
+          <input class="inp" id="simName" placeholder="เช่น iPhone 16 เครื่องใหม่" />
+        </div>
+        <div class="field">
+          <label>ราคาเต็ม</label>
+          <div class="with-unit"><input class="inp" id="simPrice" type="number" inputmode="numeric" placeholder="32000" /><span class="u">บาท</span></div>
+        </div>
+        <div class="field">
+          <label>ผ่อนกี่เดือน?</label>
+          <div class="with-unit"><input class="inp" id="simMonths" type="number" inputmode="numeric" placeholder="10" /><span class="u">เดือน</span></div>
+        </div>
+        <div class="field" style="margin-bottom:6px;">
+          <label>ยอดผ่อน/เดือน <span style="color:var(--ink-faint);font-weight:500;">(เว้นว่างให้คำนวณเอง)</span></label>
+          <div class="with-unit"><input class="inp" id="simMonthly" type="number" inputmode="numeric" placeholder="คำนวณอัตโนมัติ" /><span class="u">บาท</span></div>
+        </div>
+      </div>
+      <button class="btn" onclick="runSim()">✨ คำนวณดูเลย</button>
+      <div id="simResult" style="margin-top:18px;"></div>
+    </section>
+
+    <!-- ============ REMINDERS ============ -->
+    <section class="screen" id="screen-reminders">
+      <div class="page-title">🔔 เตือนชำระ</div>
+      <div class="page-sub">น้องออมจะคอยสะกิดไม่ให้ลืมจ่ายน้า~</div>
+      <div id="remWrap"></div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="screen" id="screen-settings">
+      <div class="page-title">⚙️ ตั้งค่า</div>
+      <div class="page-sub">ปรับข้อมูลรายรับและการเตือน</div>
+
+      <div class="install" id="installHint">
+        <div class="em">📲</div>
+        <div class="tx">ติดตั้งลงหน้าจอ: กด <b>แชร์</b> แล้วเลือก <b>“เพิ่มลงในหน้าจอโฮม”</b> เพื่อใช้เหมือนแอพจริง</div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="margin-bottom:6px;">
+          <label>💰 รายรับต่อเดือน</label>
+          <div class="with-unit"><input class="inp" id="setIncome" type="number" inputmode="numeric" /><span class="u">บาท</span></div>
+        </div>
+        <button class="btn" style="margin-top:10px;" onclick="saveIncome()">💾 บันทึกรายรับ</button>
+      </div>
+
+      <div class="card">
+        <div class="row-set">
+          <div class="ic">🔔</div>
+          <div class="tx"><div class="a">เปิดการแจ้งเตือน</div><div class="b" id="notifState">เด้งเตือนก่อนครบกำหนด 3 วัน</div></div>
+          <div class="tog" id="notifTog" onclick="toggleNotif()"><i></i></div>
+        </div>
+        <div class="row-set" onclick="testNotif()">
+          <div class="ic">📨</div>
+          <div class="tx"><div class="a">ทดสอบแจ้งเตือน</div><div class="b">ลองเด้งดูว่าหน้าตาเป็นไง</div></div>
+          <span style="color:var(--ink-faint);">›</span>
+        </div>
+        <div class="row-set">
+          <div class="ic">🌙</div>
+          <div class="tx"><div class="a">โหมดกลางคืน</div><div class="b">เร็วๆ นี้</div></div>
+          <div class="tog" onclick="this.classList.toggle('on')"><i></i></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row-set" onclick="exportData()"><div class="ic">📤</div><div class="tx"><div class="a">ส่งออก / สำรองข้อมูล</div><div class="b">ดาวน์โหลดเป็นไฟล์ .json</div></div><span style="color:var(--ink-faint);">›</span></div>
+        <div class="row-set" onclick="document.getElementById('importFile').click()"><div class="ic">📥</div><div class="tx"><div class="a">นำเข้าข้อมูล</div><div class="b">กู้คืนจากไฟล์ที่สำรองไว้</div></div><span style="color:var(--ink-faint);">›</span></div>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(this)" />
+      </div>
+
+      <div class="card">
+        <div class="row-set" onclick="seedDemo()"><div class="ic">🎁</div><div class="tx"><div class="a">โหลดข้อมูลตัวอย่าง</div><div class="b">ลองเล่นดูฟีเจอร์ทั้งหมด</div></div><span style="color:var(--ink-faint);">›</span></div>
+        <div class="row-set" onclick="resetAll()"><div class="ic">🗑️</div><div class="tx"><div class="a">ล้างข้อมูลทั้งหมด</div><div class="b">เริ่มต้นใหม่</div></div><span style="color:var(--ink-faint);">›</span></div>
+      </div>
+      <div style="text-align:center;color:var(--ink-faint);font-size:12px;font-weight:600;padding:8px 0 4px;">
+        น้องออม · Money Coach 🌿<br>ผู้ช่วยดูแลการเงินคู่ใจคุณ
+      </div>
+    </section>
+
+  </div><!-- /scroll -->
+
+  <!-- BOTTOM NAV -->
+  <div class="nav">
+    <button class="on" data-nav="home" onclick="go('home')"><span class="ic">🏠</span>หน้าหลัก</button>
+    <button data-nav="list" onclick="go('list')"><span class="ic">📋</span>รายการ</button>
+    <div class="spacer"></div>
+    <button data-nav="sim" onclick="go('sim')"><span class="ic">🔮</span>ลองคำนวณ</button>
+    <button data-nav="settings" onclick="go('settings')"><span class="ic">⚙️</span>ตั้งค่า</button>
+    <button class="fab" onclick="openSheet()">＋</button>
+  </div>
+
+  <!-- ADD SHEET -->
+  <div class="sheet-back" id="sheetBack">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="grip"></div>
+      <h2 id="sheetTitle">➕ เพิ่มรายการผ่อน</h2>
+      <p class="lead">เลือกรูปแบบหนี้ แล้วกรอกข้อมูล</p>
+
+      <div class="field">
+        <label>รูปแบบหนี้</label>
+        <div class="seg-row" id="fMode">
+          <div class="seg-opt on" data-v="installment">📆 ผ่อนเป็นงวด</div>
+          <div class="seg-opt" data-v="revolving">💳 บัตรหมุนเวียน</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>ชื่อรายการ</label>
+        <input class="inp" id="fName" placeholder="เช่น iPhone 15, บัตร KTC" />
+      </div>
+      <div class="field">
+        <label>ประเภท</label>
+        <div class="seg-row" id="fType">
+          <div class="seg-opt on" data-v="credit">💳 บัตรเครดิต</div>
+          <div class="seg-opt" data-v="cash">🏧 บัตรกดเงินสด</div>
+          <div class="seg-opt" data-v="loan">🏦 สินเชื่อ</div>
+          <div class="seg-opt" data-v="other">📦 อื่นๆ</div>
+        </div>
+      </div>
+
+      <!-- ===== INSTALLMENT FIELDS ===== -->
+      <div id="grpInstallment">
+        <div style="display:flex;gap:12px;">
+          <div class="field" style="flex:1;"><label>ยอดผ่อน/เดือน</label>
+            <div class="with-unit"><input class="inp" id="fMonthly" type="number" inputmode="numeric" placeholder="3200"/><span class="u">฿</span></div></div>
+          <div class="field" style="flex:1;"><label>จำนวนงวด</label>
+            <div class="with-unit"><input class="inp" id="fTotal" type="number" inputmode="numeric" placeholder="10"/><span class="u">งวด</span></div></div>
+        </div>
+        <div class="field"><label>ผ่อนไปแล้ว</label>
+          <div class="with-unit"><input class="inp" id="fPaid" type="number" inputmode="numeric" placeholder="0"/><span class="u">งวด</span></div></div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>💸 เงินต้น / ราคาเงินสด <span style="color:var(--ink-faint);font-weight:500;">(ไม่บังคับ)</span></label>
+          <div class="with-unit"><input class="inp" id="fPrincipal" type="number" inputmode="numeric" placeholder="เช่น 30000"/><span class="u">฿</span></div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div class="field" style="flex:1;"><label>ดอกเบี้ย %/ปี <span style="color:var(--ink-faint);font-weight:500;">(ถ้ามี)</span></label>
+            <div class="with-unit"><input class="inp" id="fRate" type="number" inputmode="decimal" placeholder="0"/><span class="u">%</span></div></div>
+          <div class="field" style="flex:1;"><label>วิธีคิดดอก</label>
+            <div class="seg-row" id="fRateType">
+              <div class="seg-opt on" data-v="effective" style="min-width:auto;font-size:11.5px;padding:12px 4px;">ลดต้นลดดอก</div>
+              <div class="seg-opt" data-v="flat" style="min-width:auto;font-size:11.5px;padding:12px 4px;">คงที่</div>
+            </div></div>
+        </div>
+        <button class="btn ghost" type="button" style="margin:0 0 8px;padding:11px;font-size:13.5px;" onclick="calcMonthly()">🧮 คำนวณยอดผ่อน/เดือน จากดอกเบี้ย</button>
+        <div id="interestHint" style="font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 4px 6px;"></div>
+      </div>
+
+      <!-- ===== REVOLVING FIELDS ===== -->
+      <div id="grpRevolving" style="display:none;">
+        <div class="field"><label>ยอดหนี้คงเหลือตอนนี้</label>
+          <div class="with-unit"><input class="inp" id="fBalance" type="number" inputmode="numeric" placeholder="เช่น 28000"/><span class="u">฿</span></div></div>
+        <div style="display:flex;gap:12px;">
+          <div class="field" style="flex:1;"><label>ดอกเบี้ย %/ปี</label>
+            <div class="with-unit"><input class="inp" id="fRevRate" type="number" inputmode="decimal" placeholder="16"/><span class="u">%</span></div></div>
+          <div class="field" style="flex:1;"><label>ตั้งใจจ่าย/เดือน</label>
+            <div class="with-unit"><input class="inp" id="fPayment" type="number" inputmode="numeric" placeholder="3000"/><span class="u">฿</span></div></div>
+        </div>
+        <div id="revolvingHint" style="font-size:12.5px;font-weight:700;margin:0 4px 8px;line-height:1.5;"></div>
+      </div>
+
+      <!-- ===== SHARED ===== -->
+      <div class="field"><label>วันครบกำหนด (ของทุกเดือน)</label>
+        <div class="with-unit"><input class="inp" id="fDue" type="number" inputmode="numeric" placeholder="25" min="1" max="31"/><span class="u">ของเดือน</span></div></div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>🏷️ แท็ก / หมวดหมู่ <span style="color:var(--ink-faint);font-weight:500;">(ไม่บังคับ)</span></label>
+        <input class="inp" id="fTag" placeholder="เช่น ของอยากได้, ฉุกเฉิน, ของใช้" />
+        <div class="tag-sug" id="tagSug"></div>
+      </div>
+      <button class="btn" id="sheetSaveBtn" style="margin-top:2px;" onclick="saveBill()">🌿 บันทึกรายการ</button>
+      <button class="btn ghost" style="margin-top:10px;" onclick="closeSheet()">ยกเลิก</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =====================================================================
+   น้องออม · Money Coach — App Logic
+   ===================================================================== */
+const TYPES = {
+  credit:{ic:'💳',label:'บัตรเครดิต',bg:'#FFE9D6',fg:'#E89B5C'},
+  cash:  {ic:'🏧',label:'บัตรกดเงินสด',bg:'#E2EFFF',fg:'#6FA8F0'},
+  loan:  {ic:'🏦',label:'สินเชื่อส่วนบุคคล',bg:'#E9E1FF',fg:'#9B7BE0'},
+  other: {ic:'📦',label:'อื่นๆ',bg:'#D4F3E4',fg:'#4FBF8A'},
+};
+const TH_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const KEY='oommoney.v1';
+
+let state = load();
+
+function load(){
+  let s=null;
+  try{s=JSON.parse(localStorage.getItem(KEY));}catch(e){}
+  if(!s||!Array.isArray(s.bills)) s={income:30000, bills:[]};
+  if(!s.notif) s.notif={enabled:false};
+  if(!s.notifLog) s.notifLog={};
+  return s;
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush();}
+
+const baht = n => '฿'+Math.round(n).toLocaleString('th-TH');
+const bahtK = n => n>=1000 ? '฿'+(n/1000).toFixed(n%1000?1:0)+'k' : '฿'+Math.round(n);
+
+/* ---------- date helpers ---------- */
+function daysUntil(dueDay){
+  const now=new Date(); const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+  let target=new Date(y,m,dueDay);
+  if(dueDay < d) target=new Date(y,m+1,dueDay);
+  return Math.round((target-new Date(y,m,d))/86400000);
+}
+function nextDueDate(dueDay){
+  const now=new Date(); let t=new Date(now.getFullYear(),now.getMonth(),dueDay);
+  if(dueDay<now.getDate()) t=new Date(now.getFullYear(),now.getMonth()+1,dueDay);
+  return t;
+}
+
+/* ---------- finance math ---------- */
+/* ---------- bill-mode helpers (installment vs revolving) ---------- */
+function revolvingPlan(balance, ratePct, payment){
+  balance=+balance||0; payment=+payment||0; const r=(+ratePct||0)/100/12;
+  if(balance<=0) return {months:0,totalInterest:0,never:false};
+  if(payment<=balance*r+0.001) return {months:Infinity,totalInterest:Infinity,never:true};
+  let bal=balance, months=0, interest=0;
+  while(bal>0 && months<600){ const i=bal*r; interest+=i; bal=bal+i-payment; if(bal<0)bal=0; months++; }
+  return {months, totalInterest:interest, never:false};
+}
+function billMonthly(b){ return b.mode==='revolving' ? (+b.payment||0) : (+b.monthly||0); }
+function billActive(b){ return b.mode==='revolving' ? (+b.balance||0)>0 : (+b.paid||0)<(+b.total||0); }
+function billRemaining(b){ return b.mode==='revolving' ? (+b.balance||0) : Math.max(0,((+b.total||0)-(+b.paid||0))*(+b.monthly||0)); }
+function billPayoffMonths(b){
+  if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.months; }
+  return Math.max(0,(+b.total||0)-(+b.paid||0));
+}
+function billInterest(b){
+  if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.totalInterest; }
+  const pr=+b.principal||0; return pr>0?Math.max(0,(+b.monthly||0)*(+b.total||0)-pr):0;
+}
+function billBalanceAt(b, m){
+  if(b.mode==='revolving'){
+    let bal=+b.balance||0; const r=(+b.rate||0)/100/12, pay=+b.payment||0;
+    for(let k=0;k<m && bal>0;k++){ bal=bal+bal*r-pay; if(bal<0)bal=0; }
+    return Math.max(0,bal);
+  }
+  return Math.max(0,((+b.total||0)-(+b.paid||0)-m))*(+b.monthly||0);
+}
+
+function totalMonthly(extra=0){return state.bills.filter(billActive).reduce((s,b)=>s+billMonthly(b),0)+extra;}
+function dsr(extra=0){return state.income>0 ? totalMonthly(extra)/state.income*100 : 0;}
+function scoreFromDsr(d){return Math.max(0,Math.min(100,Math.round(100 - d*1.15)));}
+
+function healthInfo(d){
+  if(d<=30) return {key:'good', color:'var(--good)', mood:'happy', pillBg:'#E4F8EE', pillFg:'#3DA876',
+    label:'😍 สุขภาพดีเยี่ยม', msg:'เก่งมาก! หนี้ผ่อนอยู่ในระดับปลอดภัย มีเงินเหลือเก็บออมสบายๆ เลยน้า~'};
+  if(d<=40) return {key:'good', color:'var(--good)', mood:'happy', pillBg:'#E4F8EE', pillFg:'#3DA876',
+    label:'😊 สุขภาพดี', msg:'ยังโอเคอยู่นะ ผ่อนไหวสบาย แต่อย่าเพิ่งก่อหนี้เพิ่มเยอะน้า'};
+  if(d<=50) return {key:'warn', color:'var(--warn)', mood:'warn', pillBg:'#FFF4DA', pillFg:'#D69E2E',
+    label:'😅 เริ่มตึง ต้องระวัง', msg:'หนี้เริ่มเยอะแล้วน้า ลองชะลอการซื้อของผ่อนใหม่ และเร่งปิดยอดที่ดอกแพงก่อนนะ'};
+  if(d<=70) return {key:'danger', color:'var(--danger)', mood:'sad', pillBg:'#FFE6E8', pillFg:'#E06672',
+    label:'😰 เสี่ยงสูง', msg:'ภาระผ่อนหนักเกินครึ่งรายได้แล้ว! ควรหยุดก่อหนี้ใหม่ และวางแผนรีไฟแนนซ์/ปิดหนี้ด่วน'};
+  return {key:'danger', color:'var(--danger)', mood:'sad', pillBg:'#FFE6E8', pillFg:'#E06672',
+    label:'😱 อันตรายมาก', msg:'ผ่อนเกินตัวแล้วน้า~ รายจ่ายหนี้แทบเท่ารายรับ ลองปรึกษาเรื่องรวมหนี้ และตัดรายจ่ายที่ไม่จำเป็นนะ'};
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function render(){
+  const tm=totalMonthly(), d=dsr(), score=scoreFromDsr(d), h=healthInfo(d);
+  const left=state.income-tm;
+
+  const circ=490;
+  document.getElementById('gauge').style.strokeDashoffset = circ-(circ*score/100);
+  document.getElementById('gauge').style.stroke = h.color;
+  document.getElementById('scoreNum').innerHTML = score+'<small>%</small>';
+  const pill=document.getElementById('statusPill');
+  pill.textContent=h.label; pill.style.background=h.pillBg; pill.style.color=h.pillFg;
+  document.getElementById('coachMsg').textContent=h.msg;
+  document.getElementById('homeMascot').dataset.mood=h.mood;
+
+  document.getElementById('sIncome').textContent=bahtK(state.income);
+  document.getElementById('sPay').textContent=bahtK(tm);
+  document.getElementById('sLeft').textContent=bahtK(Math.max(0,left));
+  document.getElementById('sLeft').style.color = left<0?'var(--danger)':'';
+
+  const hr=new Date().getHours();
+  document.getElementById('greet').textContent = hr<12?'เช้า':hr<17?'บ่าย':hr<19?'เย็น':'ค่ำ';
+
+  const sorted=[...state.bills].filter(billActive)
+    .sort((a,b)=>daysUntil(a.due)-daysUntil(b.due));
+  const soon = sorted.filter(b=>daysUntil(b.due)<=7);
+  document.getElementById('bellDot').textContent=soon.length;
+  document.getElementById('bellDot').style.display = soon.length?'grid':'none';
+
+  document.getElementById('homeDue').innerHTML = sorted.length
+    ? sorted.slice(0,3).map(remCard).join('')
+    : emptyMini('ยังไม่มีรายการผ่อน เพิ่มได้เลยน้า~');
+
+  document.getElementById('remWrap').innerHTML = sorted.length
+    ? sorted.map(remCard).join('')
+    : emptyFull('ยังไม่มีรอบชำระที่ต้องเตือน','เพิ่มรายการผ่อนแล้วน้องออมจะคอยเตือนให้น้า~');
+
+  document.getElementById('trendCard').innerHTML = trendCardHTML();
+  document.getElementById('summaryCard').innerHTML = summaryHTML();
+
+  buildChips();
+  renderList();
+
+  // keep detail screen fresh if it's open
+  if(currentDetailId!=null && document.getElementById('screen-detail').classList.contains('active'))
+    renderDetail(currentDetailId);
+}
+
+/* =====================================================================
+   DEBT TREND CHART (projection of total outstanding debt)
+   ===================================================================== */
+function trendCardHTML(){
+  const active=state.bills.filter(billActive);
+  if(!active.length) return '';
+  const payoffs=active.map(billPayoffMonths);
+  const anyNever=payoffs.some(x=>!isFinite(x));
+  const finite=payoffs.filter(isFinite);
+  const payoff=anyNever?12:Math.max(1,...(finite.length?finite:[1]));
+  const horizon=Math.max(1,Math.min(12,payoff));
+  const data=[];
+  for(let m=0;m<=horizon;m++){
+    let out=0;
+    active.forEach(b=>{out+=billBalanceAt(b,m);});
+    data.push(out);
+  }
+  const now=data[0];
+  const W=300,H=120,L=8,Rr=8,T=10,Bb=22;
+  const max=Math.max(...data,1);
+  const px=i=>L+i*((W-L-Rr)/horizon);
+  const py=v=>T+(1-v/max)*(H-T-Bb);
+  let line=''; data.forEach((v,i)=>{line+=(i?'L':'M')+px(i).toFixed(1)+' '+py(v).toFixed(1)+' ';});
+  const area=`M${px(0).toFixed(1)} ${py(data[0]).toFixed(1)} `
+    + data.map((v,i)=>`L${px(i).toFixed(1)} ${py(v).toFixed(1)}`).join(' ')
+    + ` L${px(horizon).toFixed(1)} ${(H-Bb).toFixed(1)} L${px(0).toFixed(1)} ${(H-Bb).toFixed(1)} Z`;
+  const freeTxt = anyNever ? `⚠️ มีบัตรที่จ่ายไม่พอดอก หนี้ไม่ลดน้า`
+    : payoff<=12 ? `อีก ~${payoff} เดือนหนี้หมดเกลี้ยง 🎉` : `หนี้กำลังลดลงเรื่อยๆ สู้ๆ น้า 💪`;
+  return `<div class="card">
+    <div class="sec-head" style="margin:0 0 8px;"><h3>📉 แนวโน้มหนี้คงเหลือ</h3></div>
+    <div style="font-family:'Itim';font-size:26px;color:var(--mint-deep);line-height:1;">${baht(now)}
+      <span style="font-size:13px;color:var(--ink-soft);font-weight:600;font-family:'Mali';"> ยอดหนี้รวมตอนนี้</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="margin-top:6px;display:block;">
+      <defs><linearGradient id="grad-trend" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#7BD8A8" stop-opacity="0.38"/>
+        <stop offset="1" stop-color="#7BD8A8" stop-opacity="0"/></linearGradient></defs>
+      <path d="${area}" fill="url(#grad-trend)"/>
+      <path d="${line}" fill="none" stroke="#4FBF8A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${px(0).toFixed(1)}" cy="${py(data[0]).toFixed(1)}" r="4.5" fill="#4FBF8A"/>
+      <circle cx="${px(horizon).toFixed(1)}" cy="${py(data[horizon]).toFixed(1)}" r="4.5" fill="#4FBF8A"/>
+      <text x="${px(0).toFixed(1)}" y="${H-6}" font-size="10" fill="#7E988D" font-family="Mali">เดือนนี้</text>
+      <text x="${px(horizon).toFixed(1)}" y="${H-6}" font-size="10" fill="#7E988D" text-anchor="end" font-family="Mali">+${horizon} ด.</text>
+    </svg>
+    <div style="text-align:center;margin-top:4px;font-size:13px;font-weight:700;color:var(--mint-deep);">${freeTxt}</div>
+  </div>`;
+}
+
+/* =====================================================================
+   PORTFOLIO SUMMARY (รวมทั้งพอร์ต + ดอกเบี้ยรวม)
+   ===================================================================== */
+function summaryHTML(){
+  const active=state.bills.filter(billActive);
+  if(!active.length) return '';
+  const remainTotal=active.reduce((s,b)=>s+billRemaining(b),0);
+  let interestTotal=0, hasInterest=false, anyInf=false;
+  state.bills.forEach(b=>{
+    if(!billActive(b) && b.mode!=='revolving') return;
+    const it=billInterest(b);
+    if(it===Infinity){ anyInf=true; hasInterest=true; }
+    else if(it>0){ interestTotal+=it; hasInterest=true; }
+  });
+  const payoffs=active.map(billPayoffMonths);
+  const anyNever=payoffs.some(x=>!isFinite(x));
+  const finite=payoffs.filter(isFinite);
+  let endLabel;
+  if(anyNever){ endLabel='ไม่มีกำหนด ⚠️'; }
+  else { const payoff=Math.max(0,...(finite.length?finite:[0])); const end=new Date(); end.setMonth(end.getMonth()+Math.max(0,payoff-1)); endLabel=TH_MONTH[end.getMonth()]+' '+((end.getFullYear()+543)%100); }
+  const intStr = !hasInterest ? '—' : (anyInf ? baht(interestTotal)+'+' : baht(interestTotal));
+  return `<div class="card">
+    <div class="sec-head" style="margin:0 0 12px;"><h3>📊 สรุปพอร์ตหนี้</h3></div>
+    <div class="kv" style="margin-bottom:0;">
+      <div class="cell"><div class="k">หนี้คงเหลือรวม</div><div class="v" style="color:var(--danger)">${baht(remainTotal)}</div></div>
+      <div class="cell"><div class="k">ดอกเบี้ยรวมทั้งพอร์ต</div><div class="v" style="color:#E89B5C">${intStr}</div></div>
+      <div class="cell"><div class="k">กำลังผ่อนอยู่</div><div class="v">${active.length} รายการ</div></div>
+      <div class="cell"><div class="k">ปลอดหนี้ภายใน</div><div class="v">${endLabel}</div></div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   FILTER CHIPS (type + dynamic tags)
+   ===================================================================== */
+function buildChips(){
+  const tags=[...new Set(state.bills.map(b=>b.tag).filter(Boolean))];
+  const base=[['all','ทั้งหมด'],['credit','💳 บัตรเครดิต'],['cash','🏧 บัตรกดเงินสด'],['loan','🏦 สินเชื่อ'],['other','📦 อื่นๆ']];
+  let html=base.map(([f,l])=>`<div class="chip ${curFilter===f?'on':''}" data-f="${f}">${l}</div>`).join('');
+  html+=tags.map(t=>`<div class="chip tag ${curFilter==='tag:'+t?'on':''}" data-f="tag:${esc(t)}">#${esc(t)}</div>`).join('');
+  document.getElementById('chips').innerHTML=html;
+}
+
+function remCard(b){
+  const days=daysUntil(b.due), dt=nextDueDate(b.due), t=TYPES[b.type]||TYPES.other;
+  const soon=days<=3;
+  const when = days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
+  const sub = b.mode==='revolving' ? `${when} · จ่ายบัตรหมุนเวียน` : `${when} · งวดที่ ${(+b.paid||0)+1}/${b.total}`;
+  return `<div class="rem">
+    <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
+    <div class="info"><div class="n">${t.ic} ${esc(b.name)}</div>
+      <div class="s ${soon?'soon':''}">${sub}</div></div>
+    <div class="amt2">${baht(billMonthly(b))}</div>
+  </div>`;
+}
+
+let curFilter='all';
+function renderList(){
+  const wrap=document.getElementById('listWrap');
+  let bills=state.bills;
+  if(curFilter!=='all'){
+    if(curFilter.indexOf('tag:')===0){const tg=curFilter.slice(4); bills=bills.filter(b=>b.tag===tg);}
+    else bills=bills.filter(b=>b.type===curFilter);
+  }
+  if(!bills.length){
+    wrap.innerHTML=emptyFull('ยังไม่มีรายการในหมวดนี้','กดปุ่ม ＋ ด้านล่างเพื่อเพิ่มรายการผ่อนน้า~');
+    return;
+  }
+  wrap.innerHTML=bills.map((b)=>{
+    const t=TYPES[b.type]||TYPES.other;
+    const days=daysUntil(b.due), soon=days<=3;
+    const dueTxt=`📅 ${days<=0?'วันนี้':'อีก '+days+'ว'}`;
+    const nmLine=`<div class="nm"><span class="nm-txt">${esc(b.name)}</span>${b.tag?`<span class="tagchip">#${esc(b.tag)}</span>`:''}</div>`;
+    if(b.mode==='revolving'){
+      const p=revolvingPlan(b.balance,b.rate,b.payment);
+      const status=p.never?`<span style="color:var(--danger);font-weight:700;">⚠️ จ่ายไม่พอดอก</span>`:`หมดใน ${p.months} เดือน`;
+      return `<div class="bill" onclick="openDetail(${b.id})">
+        <div class="ava" style="background:${t.bg}">${t.ic}</div>
+        <div class="mid">
+          ${nmLine}
+          <div class="ty">บัตรหมุนเวียน · ดอก ${(+b.rate||0)}%/ปี</div>
+          <div class="meta" style="margin-top:9px;"><span>คงเหลือ ${baht(b.balance)}</span><span>${status}</span></div>
+        </div>
+        <div class="amt"><div class="a">${baht(b.payment)}</div>
+          <div class="due ${soon?'soon':''}">${dueTxt}</div></div>
+      </div>`;
+    }
+    const paid=+b.paid||0, tot=+b.total||1, pct=Math.min(100,Math.round(paid/tot*100));
+    const remain=(tot-paid)*(+b.monthly||0);
+    return `<div class="bill" onclick="openDetail(${b.id})">
+      <div class="ava" style="background:${t.bg}">${t.ic}</div>
+      <div class="mid">
+        ${nmLine}
+        <div class="ty">${t.label} · เหลือ ${baht(remain)}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="meta"><span>งวด ${paid}/${tot}</span><span>${pct}%</span></div>
+      </div>
+      <div class="amt"><div class="a">${baht(b.monthly)}</div>
+        <div class="due ${soon?'soon':''}">${dueTxt}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function emptyMini(t){return `<div class="empty" style="padding:24px 12px;"><p>${t}</p></div>`;}
+function emptyFull(t,s){return `<div class="empty">
+  <div class="mascot" data-mood="happy"><div class="coin"></div><div class="eye l"></div><div class="eye r"></div>
+  <div class="blush l"></div><div class="blush r"></div><div class="mouth"></div></div>
+  <p style="font-size:15px;color:var(--ink);">${t}</p><p>${s}</p></div>`;}
+function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
+
+/* =====================================================================
+   SIMULATOR
+   ===================================================================== */
+function runSim(){
+  const name=document.getElementById('simName').value||'สินค้าใหม่';
+  const price=+document.getElementById('simPrice').value||0;
+  const months=+document.getElementById('simMonths').value||0;
+  let monthly=+document.getElementById('simMonthly').value||0;
+  if(!monthly && price && months) monthly=Math.round(price/months);
+  if(!monthly){toast('กรอกยอดผ่อน หรือราคา+จำนวนเดือนก่อนน้า~'); return;}
+
+  const before=dsr(), after=dsr(monthly);
+  const sBefore=scoreFromDsr(before), sAfter=scoreFromDsr(after);
+  const leftAfter=state.income-totalMonthly(monthly);
+  const hAfter=healthInfo(after);
+
+  let cls,head,why,face;
+  if(after<=40 && leftAfter>=state.income*0.2){
+    cls='go'; head='✅ ซื้อได้สบายมาก!'; face='😍';
+    why=`ถ้าผ่อน "${esc(name)}" เดือนละ ${baht(monthly)} ภาระหนี้จะอยู่ที่ ${after.toFixed(0)}% ของรายรับ ยังเหลือใช้ ${baht(leftAfter)}/เดือน ปลอดภัยน้า~`;
+  }else if(after<=55 && leftAfter>0){
+    cls='care'; head='⚠️ ซื้อได้…แต่ต้องคิดดีๆ'; face='🤔';
+    why=`ผ่อนเพิ่มเดือนละ ${baht(monthly)} จะดันภาระหนี้ขึ้นเป็น ${after.toFixed(0)}% เหลือใช้แค่ ${baht(leftAfter)}/เดือน ถ้ามีค่าใช้จ่ายฉุกเฉินอาจตึงมือน้า แนะนำให้ปิดหนี้เดิมก่อน`;
+  }else{
+    cls='no'; head='🛑 ยังไม่ควรซื้อน้า'; face='😭';
+    why = leftAfter<0
+      ? `ถ้าซื้อ เงินจะไม่พอผ่อน! รายจ่ายหนี้จะเกินรายรับ (ติดลบ ${baht(Math.abs(leftAfter))}/เดือน) รอปิดหนี้เดิมหรือเก็บเงินก้อนก่อนดีกว่า 🥺`
+      : `ภาระหนี้จะพุ่งไป ${after.toFixed(0)}% ของรายรับ เหลือใช้แค่ ${baht(leftAfter)}/เดือน เสี่ยงผ่อนไม่ไหวน้า ชะลอไว้ก่อนนะ`;
+  }
+
+  document.getElementById('simResult').innerHTML=`
+    <div class="verdict ${cls}">
+      <div class="mascot" data-mood="${hAfter.mood}" style="margin:0 auto 4px;width:70px;height:70px;">
+        <div class="coin"></div><div class="eye l"></div><div class="eye r"></div>
+        <div class="blush l"></div><div class="blush r"></div><div class="mouth"></div></div>
+      <div class="big">${head}</div>
+      <div class="why">${why}</div>
+    </div>
+    <div class="compare">
+      <div class="col"><div class="t">ตอนนี้</div><div class="n" style="color:${healthInfo(before).color}">${sBefore}<small style="font-size:16px">%</small></div><div class="d">หนี้ ${before.toFixed(0)}%</div></div>
+      <div class="arr">➜</div>
+      <div class="col"><div class="t">ถ้าซื้อ</div><div class="n" style="color:${hAfter.color}">${sAfter}<small style="font-size:16px">%</small></div><div class="d">หนี้ ${after.toFixed(0)}%</div></div>
+    </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">เหลือใช้หลังซื้อ</div>
+      <div style="font-family:'Itim';font-size:24px;color:${leftAfter<0?'var(--danger)':'var(--mint-deep)'}">${baht(leftAfter)}<span style="font-size:14px;color:var(--ink-soft)">/เดือน</span></div></div>
+      <div style="font-size:40px">${face}</div>
+    </div>`;
+  document.getElementById('simResult').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* =====================================================================
+   ADD / DELETE
+   ===================================================================== */
+let editingId=null, curMode='installment';
+function setType(v){ document.querySelectorAll('#fType .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); }
+function setRateType(v){ document.querySelectorAll('#fRateType .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); }
+function setMode(v){
+  curMode=v;
+  document.querySelectorAll('#fMode .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  document.getElementById('grpInstallment').style.display = v==='installment'?'':'none';
+  document.getElementById('grpRevolving').style.display = v==='revolving'?'':'none';
+}
+function openSheet(id){
+  const all=['fName','fMonthly','fTotal','fPaid','fDue','fPrincipal','fTag','fRate','fBalance','fRevRate','fPayment'];
+  all.forEach(f=>document.getElementById(f).value='');
+  if(typeof id==='number'){
+    const b=state.bills.find(x=>x.id===id); if(!b)return;
+    editingId=id;
+    document.getElementById('sheetTitle').textContent='✏️ แก้ไขรายการ';
+    document.getElementById('sheetSaveBtn').textContent='💾 บันทึกการแก้ไข';
+    document.getElementById('fName').value=b.name;
+    document.getElementById('fDue').value=b.due;
+    document.getElementById('fTag').value=b.tag||'';
+    setType(b.type); setMode(b.mode||'installment');
+    if((b.mode||'installment')==='revolving'){
+      document.getElementById('fBalance').value=b.balance||'';
+      document.getElementById('fRevRate').value=b.rate||'';
+      document.getElementById('fPayment').value=b.payment||'';
+    }else{
+      document.getElementById('fMonthly').value=b.monthly;
+      document.getElementById('fTotal').value=b.total;
+      document.getElementById('fPaid').value=b.paid;
+      document.getElementById('fPrincipal').value=b.principal||'';
+      document.getElementById('fRate').value=b.rate||'';
+      setRateType(b.rateType||'effective');
+    }
+  }else{
+    editingId=null;
+    document.getElementById('sheetTitle').textContent='➕ เพิ่มรายการผ่อน';
+    document.getElementById('sheetSaveBtn').textContent='🌿 บันทึกรายการ';
+    setType('credit'); setMode('installment'); setRateType('effective');
+  }
+  renderTagSug(); updateInterestHint(); updateRevolvingHint();
+  document.getElementById('sheetBack').classList.add('show');
+}
+function renderTagSug(){
+  const tags=[...new Set(state.bills.map(b=>b.tag).filter(Boolean))].slice(0,6);
+  document.getElementById('tagSug').innerHTML=tags.map(t=>
+    `<span class="s" onclick="document.getElementById('fTag').value='${esc(t)}'">#${esc(t)}</span>`).join('');
+}
+function closeSheet(){document.getElementById('sheetBack').classList.remove('show'); editingId=null;}
+
+function calcMonthly(){
+  const principal=+document.getElementById('fPrincipal').value||0;
+  const rate=+document.getElementById('fRate').value||0;
+  const n=+document.getElementById('fTotal').value||0;
+  const type=document.querySelector('#fRateType .seg-opt.on').dataset.v;
+  if(!principal||!n){toast('กรอกเงินต้น และจำนวนงวดก่อนน้า~');return;}
+  let m;
+  if(rate<=0) m=principal/n;
+  else if(type==='flat') m=(principal + principal*(rate/100)*(n/12))/n;
+  else { const r=rate/100/12; m=principal*r/(1-Math.pow(1+r,-n)); }
+  document.getElementById('fMonthly').value=Math.round(m);
+  updateInterestHint();
+  toast('คำนวณยอดผ่อนให้แล้ว ✨ ('+baht(Math.round(m))+'/เดือน)');
+}
+function updateInterestHint(){
+  const monthly=+document.getElementById('fMonthly').value||0;
+  const total=+document.getElementById('fTotal').value||0;
+  const principal=+document.getElementById('fPrincipal').value||0;
+  const el=document.getElementById('interestHint');
+  if(monthly&&total&&principal){
+    const interest=monthly*total-principal;
+    el.textContent = interest>0
+      ? `ผ่อนรวม ${baht(monthly*total)} → ดอกเบี้ย ${baht(interest)} (${Math.round(interest/principal*100)}% ของเงินต้น)`
+      : `ผ่อน 0% ไม่มีดอกเบี้ย เก่งมาก! 🎉`;
+    el.style.color = interest>0 ? 'var(--ink-soft)' : 'var(--mint-deep)';
+  }else{ el.textContent=''; }
+}
+function updateRevolvingHint(){
+  const bal=+document.getElementById('fBalance').value||0;
+  const rate=+document.getElementById('fRevRate').value||0;
+  const pay=+document.getElementById('fPayment').value||0;
+  const el=document.getElementById('revolvingHint');
+  if(!bal||!pay){ el.textContent=''; return; }
+  const p=revolvingPlan(bal,rate,pay);
+  if(p.never){ el.innerHTML='⚠️ จ่ายน้อยกว่าดอกเบี้ย! ยอดหนี้จะไม่ลดเลย ลองเพิ่มยอดจ่ายน้า'; el.style.color='var(--danger)'; }
+  else { el.innerHTML=`✅ จ่ายแบบนี้ ~${p.months} เดือนหมด · ดอกเบี้ยรวม ~${baht(p.totalInterest)}`; el.style.color='var(--mint-deep)'; }
+}
+document.addEventListener('input',e=>{
+  const id=e.target.id;
+  if(['fMonthly','fTotal','fPrincipal','fRate'].includes(id)) updateInterestHint();
+  if(['fBalance','fRevRate','fPayment'].includes(id)) updateRevolvingHint();
+});
+document.getElementById('sheetBack').addEventListener('click',closeSheet);
+function segPick(containerId){
+  document.getElementById(containerId).addEventListener('click',e=>{
+    const o=e.target.closest('.seg-opt'); if(!o)return;
+    document.querySelectorAll('#'+containerId+' .seg-opt').forEach(x=>x.classList.remove('on')); o.classList.add('on');
+  });
+}
+segPick('fType'); segPick('fRateType');
+document.getElementById('fMode').addEventListener('click',e=>{
+  const o=e.target.closest('.seg-opt'); if(!o)return; setMode(o.dataset.v);
+});
+
+function saveBill(){
+  const name=document.getElementById('fName').value.trim();
+  const type=document.querySelector('#fType .seg-opt.on').dataset.v;
+  const due=Math.min(31,Math.max(1,+document.getElementById('fDue').value||1));
+  const tag=document.getElementById('fTag').value.trim().replace(/[<>&#]/g,'').slice(0,20);
+
+  let data;
+  if(curMode==='revolving'){
+    const balance=+document.getElementById('fBalance').value||0;
+    const rate=+document.getElementById('fRevRate').value||0;
+    const payment=+document.getElementById('fPayment').value||0;
+    if(!name||!balance||!payment){toast('กรอกชื่อ ยอดคงเหลือ และยอดจ่าย/เดือนก่อนน้า~');return;}
+    data={mode:'revolving',name,type,balance,rate,payment,due,tag};
+  }else{
+    const monthly=+document.getElementById('fMonthly').value||0;
+    const total=+document.getElementById('fTotal').value||0;
+    const paid=Math.min(total,Math.max(0,+document.getElementById('fPaid').value||0));
+    const principal=+document.getElementById('fPrincipal').value||0;
+    const rate=+document.getElementById('fRate').value||0;
+    const rateType=document.querySelector('#fRateType .seg-opt.on').dataset.v;
+    if(!name||!monthly||!total){toast('กรอกชื่อ ยอดผ่อน และจำนวนงวดก่อนน้า~');return;}
+    data={mode:'installment',name,type,monthly,total,paid,due,principal,rate,rateType,tag};
+  }
+
+  if(editingId!=null){
+    const b=state.bills.find(x=>x.id===editingId);
+    if(b){ ['monthly','total','paid','principal','rate','rateType','balance','payment'].forEach(k=>delete b[k]); Object.assign(b,data); }
+    const id=editingId;
+    save(); closeSheet(); toast('แก้ไขรายการแล้ว ✏️');
+    currentDetailId=id; renderDetail(id); go('detail');
+    document.querySelector('.nav [data-nav="list"]').classList.add('on');
+    return;
+  }
+  state.bills.push(Object.assign({id:Date.now()},data));
+  save(); closeSheet(); toast('เพิ่มรายการแล้ว! 🌿'); go('list');
+}
+
+function delBill(i){
+  const b=state.bills[i]; if(!b)return;
+  if(confirm(`ลบรายการ "${b.name}" ?`)){state.bills.splice(i,1); save(); toast('ลบแล้วน้า');}
+}
+
+/* =====================================================================
+   DETAIL SCREEN + PAY INSTALLMENT
+   ===================================================================== */
+let currentDetailId=null;
+function openDetail(id){
+  currentDetailId=id; renderDetail(id); go('detail');
+  document.querySelector('.nav [data-nav="list"]').classList.add('on');
+}
+
+function renderRevolvingDetail(b){
+  const wrap=document.getElementById('detailWrap');
+  const t=TYPES[b.type]||TYPES.other;
+  const p=revolvingPlan(b.balance,b.rate,b.payment);
+  const days=daysUntil(b.due), dt=nextDueDate(b.due), soon=days<=3;
+  const when = days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
+  const monthlyInt=(+b.balance||0)*((+b.rate||0)/100/12);
+  const end=new Date(); if(!p.never){ end.setMonth(end.getMonth()+Math.max(0,p.months-1)); }
+  const endLabel = p.never ? 'ไม่มีกำหนด' : TH_MONTH[end.getMonth()]+' '+((end.getFullYear()+543)%100);
+  wrap.innerHTML=`
+    <button class="back-btn" onclick="go('list')">← กลับไปรายการ</button>
+    <div class="detail-hero">
+      <div class="ava" style="background:${t.bg}">${t.ic}</div>
+      <div class="nm">${esc(b.name)}</div>
+      <div class="ty">💳 บัตรหมุนเวียน${b.tag?` · #${esc(b.tag)}`:''}</div>
+      <div class="big-amt">${baht(b.payment)}<span>/เดือน</span></div>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--ink-soft);font-weight:600;">ยอดคงเหลือ ${baht(b.balance)} · ดอก ${(+b.rate||0)}%/ปี</div>
+    </div>
+
+    <div class="kv">
+      <div class="cell"><div class="k">ยอดคงเหลือ</div><div class="v" style="color:var(--danger)">${baht(b.balance)}</div></div>
+      <div class="cell"><div class="k">ดอกเบี้ย/เดือนนี้</div><div class="v" style="color:#E89B5C">${baht(monthlyInt)}</div></div>
+      <div class="cell"><div class="k">${p.never?'สถานะ':'จ่ายแบบนี้หมดใน'}</div><div class="v">${p.never?'จ่ายไม่พอ ⚠️':p.months+' เดือน'}</div></div>
+      <div class="cell"><div class="k">ปลอดหนี้</div><div class="v">${endLabel}</div></div>
+    </div>
+
+    ${p.never
+      ? `<div class="warn-banner">⚠️ จ่าย ${baht(b.payment)}/เดือน น้อยกว่าดอกเบี้ย ${baht(monthlyInt)}/เดือน<br>ยอดหนี้จะไม่ลดลงเลย ลองเพิ่มยอดจ่ายต่อเดือนน้า~</div>`
+      : `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">💸 ถ้าจ่ายแบบนี้ไปเรื่อยๆ ดอกเบี้ยรวม</div>
+            <div style="font-family:'Itim';font-size:24px;color:var(--danger);line-height:1.1;">${baht(p.totalInterest)}</div></div>
+          <div style="font-size:34px;">${p.totalInterest>b.balance*0.3?'😰':'🙂'}</div>
+        </div>`}
+
+    <div class="due-card">
+      <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
+      <div class="info"><div class="a">รอบชำระถัดไป</div><div class="b ${soon?'soon':''}">${when}</div></div>
+    </div>
+
+    <button class="btn" onclick="payInstallment(${b.id})">✅ จ่ายเดือนนี้แล้ว (ตัดยอด)</button>
+    <div style="display:flex;gap:11px;margin-top:11px;">
+      <button class="btn ghost" style="flex:1;" onclick="openSheet(${b.id})">✏️ แก้ไข</button>
+      <button class="btn ghost" style="flex:1;color:var(--danger);" onclick="delBillById(${b.id})">🗑️ ลบ</button>
+    </div>`;
+}
+
+function renderDetail(id){
+  const b=state.bills.find(x=>x.id===id);
+  const wrap=document.getElementById('detailWrap');
+  if(!b){wrap.innerHTML=`<button class="back-btn" onclick="go('list')">← กลับ</button>`+
+    emptyFull('ไม่พบรายการ','รายการนี้อาจถูกลบไปแล้วน้า'); return;}
+  if(b.mode==='revolving'){ renderRevolvingDetail(b); return; }
+  const t=TYPES[b.type]||TYPES.other;
+  const paid=+b.paid||0, tot=+b.total||1, rem=Math.max(0,tot-paid), pct=Math.min(100,Math.round(paid/tot*100));
+  const remainBaht=rem*(+b.monthly||0), paidBaht=paid*(+b.monthly||0);
+  const principal=+b.principal||0, totalPay=(+b.monthly||0)*tot, interest=totalPay-principal;
+  const intPct = principal>0 ? Math.round(interest/principal*100) : 0;
+  const days=daysUntil(b.due), dt=nextDueDate(b.due), soon=days<=3;
+  const done=paid>=tot;
+  const end=new Date(); end.setMonth(end.getMonth()+Math.max(0,rem-1));
+  const endLabel=TH_MONTH[end.getMonth()]+' '+((end.getFullYear()+543)%100);
+  const when = days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
+
+  wrap.innerHTML=`
+    <button class="back-btn" onclick="go('list')">← กลับไปรายการ</button>
+    <div class="detail-hero">
+      <div class="ava" style="background:${t.bg}">${t.ic}</div>
+      <div class="nm">${esc(b.name)}</div>
+      <div class="ty">${t.label}${b.tag?` · #${esc(b.tag)}`:''}</div>
+      <div class="big-amt">${baht(b.monthly)}<span>/เดือน</span></div>
+      <div class="bar" style="margin:14px 0 7px;"><i style="width:${pct}%"></i></div>
+      <div style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">ผ่อนแล้ว ${paid}/${tot} งวด · ${pct}%</div>
+    </div>
+
+    <div class="kv">
+      <div class="cell"><div class="k">ยอดคงเหลือ</div><div class="v" style="color:var(--danger)">${baht(remainBaht)}</div></div>
+      <div class="cell"><div class="k">จ่ายไปแล้ว</div><div class="v" style="color:var(--mint-deep)">${baht(paidBaht)}</div></div>
+      <div class="cell"><div class="k">เหลืออีก</div><div class="v">${rem} งวด</div></div>
+      <div class="cell"><div class="k">ผ่อนหมด</div><div class="v">${done?'ครบแล้ว 🎉':endLabel}</div></div>
+    </div>
+
+    ${principal>0 ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">💸 ดอกเบี้ยที่จ่ายจริง</div>
+        <div style="font-family:'Itim';font-size:24px;color:${interest>0?'var(--danger)':'var(--mint-deep)'};line-height:1.1;">${baht(Math.max(0,interest))}
+        <span style="font-size:13px;color:var(--ink-soft);">(${intPct}% ของเงินต้น)</span></div></div>
+      <div style="text-align:right;font-size:11.5px;color:var(--ink-soft);font-weight:600;">
+        เงินต้น ${baht(principal)}<br>ผ่อนรวม ${baht(totalPay)}</div>
+    </div>` : ''}
+
+    ${done?'':`<div class="due-card">
+      <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
+      <div class="info"><div class="a">งวดถัดไป · งวดที่ ${paid+1}</div><div class="b ${soon?'soon':''}">${when}</div></div>
+    </div>`}
+
+    ${done
+      ? `<div class="done-banner">🎉 ผ่อนครบทุกงวดแล้ว เก่งมากเลยน้า!</div>`
+      : `<button class="btn" onclick="payInstallment(${b.id})">✅ จ่ายงวดที่ ${paid+1} แล้ว</button>`}
+    <div style="display:flex;gap:11px;margin-top:11px;">
+      <button class="btn ghost" style="flex:1;" onclick="openSheet(${b.id})">✏️ แก้ไข</button>
+      <button class="btn ghost" style="flex:1;color:var(--danger);" onclick="delBillById(${b.id})">🗑️ ลบ</button>
+    </div>`;
+}
+
+function payInstallment(id){
+  const b=state.bills.find(x=>x.id===id); if(!b)return;
+  if(b.mode==='revolving'){
+    const bal=+b.balance||0; if(bal<=0)return;
+    const interest=bal*((+b.rate||0)/100/12), principalPaid=(+b.payment||0)-interest;
+    if(principalPaid<=0){ toast('ยอดจ่ายยังน้อยกว่าดอกเบี้ย ยอดไม่ลดน้า 🥺'); return; }
+    b.balance=Math.max(0,bal-principalPaid);
+    save();
+    if(b.balance<=0){ toast('ปิดยอดบัตรนี้ได้แล้ว เก่งมาก! 🎉'); }
+    else { toast('ตัดยอดแล้ว เหลือ '+baht(b.balance)+' ✅'); }
+    return;
+  }
+  const tot=+b.total||0, paid=+b.paid||0;
+  if(paid>=tot)return;
+  b.paid=paid+1;
+  save(); // re-renders everything incl. this detail screen
+  if(b.paid>=tot){ toast('ผ่อนครบแล้ว เก่งมาก! 🎉'); }
+  else { toast('บันทึกการจ่ายงวดที่ '+b.paid+' แล้ว ✅'); }
+}
+
+function delBillById(id){
+  const i=state.bills.findIndex(b=>b.id===id); if(i<0)return;
+  const b=state.bills[i];
+  if(confirm(`ลบรายการ "${b.name}" ?`)){
+    state.bills.splice(i,1); currentDetailId=null; save(); toast('ลบแล้วน้า'); go('list');
+  }
+}
+
+/* =====================================================================
+   SETTINGS
+   ===================================================================== */
+function saveIncome(){
+  const v=+document.getElementById('setIncome').value||0;
+  if(v<=0){toast('กรอกรายรับให้ถูกต้องน้า~');return;}
+  state.income=v; save(); toast('บันทึกรายรับแล้ว 💰');
+}
+function seedDemo(){
+  state={income:30000,notif:state.notif||{enabled:false},notifLog:{},bills:[
+    {id:1,mode:'installment',name:'iPhone 15 ผ่อน 0%',type:'credit',monthly:3200,total:10,paid:3,due:25,principal:32000,rate:0,rateType:'effective',tag:'ของอยากได้'},
+    {id:2,mode:'installment',name:'มอเตอร์ไซค์ Honda',type:'loan',monthly:2400,total:20,paid:8,due:5,principal:40000,rate:7,rateType:'flat',tag:'จำเป็น'},
+    {id:3,mode:'installment',name:'บัตรกดเงินสด FirstChoice',type:'cash',monthly:1500,total:10,paid:2,due:15,principal:13000,rate:25,rateType:'effective',tag:'ฉุกเฉิน'},
+    {id:4,mode:'installment',name:'โซฟา Index ผ่อน 6 ด.',type:'credit',monthly:2000,total:6,paid:1,due:28,principal:11000,rate:18,rateType:'flat',tag:'ของใช้'},
+    {id:5,mode:'revolving',name:'บัตรเครดิต KTC',type:'credit',balance:28000,rate:16,payment:3000,due:20,tag:'หมุนเวียน'},
+  ]};
+  save(); toast('โหลดข้อมูลตัวอย่างแล้ว 🎁'); go('home');
+}
+function resetAll(){
+  if(confirm('ล้างข้อมูลทั้งหมด เริ่มต้นใหม่?')){
+    state={income:30000,bills:[],notif:{enabled:state.notif&&state.notif.enabled},notifLog:{}};
+    save();toast('ล้างข้อมูลแล้ว');go('home');
+  }
+}
+
+/* =====================================================================
+   NOTIFICATIONS (foreground + ready for Web Push server later)
+   ===================================================================== */
+function updateNotifUI(){
+  const tog=document.getElementById('notifTog'); if(!tog)return;
+  const supported=('Notification' in window);
+  const on = supported && state.notif.enabled && Notification.permission==='granted';
+  tog.classList.toggle('on', !!on);
+  const st=document.getElementById('notifState');
+  if(!supported) st.textContent='เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน';
+  else if(Notification.permission==='denied') st.textContent='ถูกบล็อก — เปิดสิทธิ์ในตั้งค่าเบราว์เซอร์';
+  else if(on) st.textContent = (state.notif.push) ? 'เปิดอยู่ · Push เซิร์ฟเวอร์ (เด้งแม้ปิดแอพ) 🌿' : 'เปิดอยู่ · เด้งเตือนก่อนครบกำหนด 3 วัน';
+  else st.textContent='แตะเพื่อเปิดการแจ้งเตือน';
+}
+async function toggleNotif(){
+  if(!('Notification' in window)){toast('เบราว์เซอร์นี้ไม่รองรับน้า');return;}
+  if(state.notif.enabled && Notification.permission==='granted'){
+    state.notif.enabled=false; await unsubscribePush(); save(); updateNotifUI(); toast('ปิดการแจ้งเตือนแล้ว'); return;
+  }
+  let perm=Notification.permission;
+  if(perm!=='granted') perm=await Notification.requestPermission();
+  if(perm==='granted'){
+    state.notif.enabled=true; save();
+    tryPeriodicSync(); checkDueNotifications(true);
+    const pushed=await subscribeToPush();
+    updateNotifUI();
+    toast(pushed?'เปิดแจ้งเตือน + Push เซิร์ฟเวอร์แล้ว 🔔':'เปิดการแจ้งเตือนแล้ว 🔔');
+  }else{ toast('ยังไม่ได้รับอนุญาตให้แจ้งเตือนน้า'); updateNotifUI(); }
+}
+function notify(title,body){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const opts={body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:'oommoney',renotify:true};
+  if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+    navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,opts)).catch(()=>{try{new Notification(title,opts);}catch(e){}});
+  }else{ try{new Notification(title,opts);}catch(e){} }
+}
+function testNotif(){
+  if(!('Notification' in window)){toast('เบราว์เซอร์นี้ไม่รองรับน้า');return;}
+  if(Notification.permission!=='granted'){ toggleNotif(); return; }
+  notify('🌿 น้องออมทดสอบแจ้งเตือน','แบบนี้แหละ~ พอถึงรอบชำระจะเด้งเตือนแบบนี้เลยน้า');
+  toast('ส่งแจ้งเตือนทดสอบแล้ว 📨');
+}
+function todayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function checkDueNotifications(force){
+  if(!state.notif.enabled||!('Notification' in window)||Notification.permission!=='granted')return;
+  const tk=todayKey(); let fired=0;
+  state.bills.filter(b=>(+b.paid||0)<(+b.total||0)).forEach(b=>{
+    if(daysUntil(b.due)<=3){
+      if(state.notifLog[b.id]!==tk || force){
+        const t=TYPES[b.type]||TYPES.other, days=daysUntil(b.due);
+        const when=days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้นี่แล้ว':'อีก '+days+' วัน';
+        notify(`🔔 ใกล้ครบกำหนด: ${b.name}`,`${t.label} · ${baht(b.monthly)} · ${when} อย่าลืมจ่ายน้า~`);
+        state.notifLog[b.id]=tk; fired++;
+      }
+    }
+  });
+  if(fired) localStorage.setItem(KEY,JSON.stringify(state));
+}
+async function tryPeriodicSync(){
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    if(reg && 'periodicSync' in reg){
+      const status=await navigator.permissions.query({name:'periodic-background-sync'});
+      if(status.state==='granted') await reg.periodicSync.register('check-due',{minInterval:24*60*60*1000});
+    }
+  }catch(e){}
+}
+
+/* =====================================================================
+   WEB PUSH (auto-detects the optional Node push server → real push)
+   ===================================================================== */
+let pushBackend=null; // null=unknown, false=no backend, string=VAPID public key
+async function getVapidKey(){
+  if(pushBackend!==null) return pushBackend;
+  try{
+    const r=await fetch('api/vapidPublicKey',{cache:'no-store'});
+    if(!r.ok){ pushBackend=false; return false; }
+    const j=await r.json(); pushBackend=j.publicKey||false; return pushBackend;
+  }catch(e){ pushBackend=false; return false; }
+}
+function urlB64ToUint8Array(s){
+  const pad='='.repeat((4-s.length%4)%4);
+  const b=(s+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b), arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+function buildReminders(){
+  const lead=3, rems=[], now=Date.now();
+  state.bills.filter(billActive).forEach(b=>{
+    const t=TYPES[b.type]||TYPES.other, base=nextDueDate(b.due);
+    const pm=billPayoffMonths(b); const occN=isFinite(pm)?Math.min(pm,3):3;
+    for(let k=0;k<occN;k++){
+      const occ=new Date(base); occ.setMonth(occ.getMonth()+k);
+      [lead,0].forEach(d=>{
+        const fire=new Date(occ); fire.setDate(fire.getDate()-d); fire.setHours(9,0,0,0);
+        if(fire.getTime()>now) rems.push({
+          id:b.id+'-'+occ.getTime()+'-'+d,
+          title:`🔔 ใกล้ครบกำหนด: ${b.name}`,
+          body:`${t.label} · ${baht(billMonthly(b))} · ${d===0?'ครบกำหนดวันนี้!':'อีก '+d+' วัน'} อย่าลืมจ่ายน้า~`,
+          fireAt:fire.toISOString()
+        });
+      });
+    }
+  });
+  return rems;
+}
+async function subscribeToPush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)) return false;
+  const key=await getVapidKey(); if(!key) return false;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8Array(key)});
+    await fetch('api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub,reminders:buildReminders()})});
+    state.notif.push=true; localStorage.setItem(KEY,JSON.stringify(state));
+    return true;
+  }catch(e){ return false; }
+}
+async function syncPush(){
+  if(!state.notif||!state.notif.push||!('serviceWorker' in navigator)) return;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription(); if(!sub) return;
+    await fetch('api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub,reminders:buildReminders()})});
+  }catch(e){}
+}
+async function unsubscribePush(){
+  if(!state.notif||!state.notif.push) return;
+  state.notif.push=false;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){
+      await fetch('api/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})});
+      await sub.unsubscribe();
+    }
+  }catch(e){}
+}
+
+/* =====================================================================
+   EXPORT / IMPORT (backup)
+   ===================================================================== */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a'), d=new Date();
+  const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  a.href=url; a.download='oommoney-backup-'+stamp+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('ส่งออกข้อมูลแล้ว 📤');
+}
+function importData(input){
+  const file=input.files&&input.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const obj=JSON.parse(r.result);
+      if(!obj||!Array.isArray(obj.bills)) throw new Error('bad');
+      if(!confirm('นำเข้าข้อมูลนี้แทนข้อมูลปัจจุบัน?')){input.value='';return;}
+      state={income:+obj.income||0, bills:obj.bills, notif:obj.notif||{enabled:false}, notifLog:obj.notifLog||{}};
+      save(); toast('นำเข้าข้อมูลแล้ว 📥'); go('home');
+    }catch(e){ toast('ไฟล์ไม่ถูกต้องน้า~'); }
+    input.value='';
+  };
+  r.readAsText(file);
+}
+
+/* =====================================================================
+   NAV
+   ===================================================================== */
+function go(s){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('screen-'+s).classList.add('active');
+  document.querySelectorAll('.nav [data-nav]').forEach(b=>b.classList.toggle('on',b.dataset.nav===s));
+  document.getElementById('scroll').scrollTop=0;
+  if(s==='settings'){ document.getElementById('setIncome').value=state.income; updateNotifUI(); }
+}
+
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+document.getElementById('chips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c)return;
+  document.querySelectorAll('#chips .chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+  curFilter=c.dataset.f; renderList();
+});
+
+/* boot */
+render();
+updateNotifUI();
+checkDueNotifications();
+
+// re-check reminders whenever the app returns to the foreground
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkDueNotifications(); });
+
+/* service worker */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
