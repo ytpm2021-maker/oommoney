@@ -61,6 +61,7 @@ git push -u origin main
    - `VAPID_PUBLIC_KEY` = (ค่า public ด้านบน)
    - `VAPID_PRIVATE_KEY` = (ค่า private ด้านบน)
    - `VAPID_CONTACT` = `mailto:อีเมลคุณ`
+   - `APP_PASSWORD` = รหัสผ่านเข้าแอพที่คุณตั้งเอง *(เว้นว่าง = ไม่ล็อก)*
 4. กด **Apply** → รอ build ~2-3 นาที
 
 ### วิธี B — ตั้งเองทีละช่อง (ถ้าวิธี A มีปัญหา)

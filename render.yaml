@@ -16,3 +16,5 @@ services:
         sync: false        # ความลับ — อย่าเผยแพร่
       - key: VAPID_CONTACT
         sync: false        # เช่น mailto:you@email.com
+      - key: APP_PASSWORD
+        sync: false        # รหัสผ่านเข้าแอพ (เว้นว่าง = ไม่ล็อก)
