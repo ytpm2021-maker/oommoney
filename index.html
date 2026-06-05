@@ -325,6 +325,15 @@ input,select{font-family:inherit;}
   text-align:center;font-weight:700;font-size:16px;box-shadow:var(--sh-2);}
 .warn-banner{background:linear-gradient(135deg,#FFB0B6,#F0707A);color:#fff;border-radius:var(--r-md);padding:16px;
   text-align:center;font-weight:700;font-size:14px;box-shadow:var(--sh-2);line-height:1.6;margin-bottom:16px;}
+.sched-wrap{max-height:300px;overflow-y:auto;border-radius:var(--r-sm);}
+.sched-wrap::-webkit-scrollbar{width:5px;} .sched-wrap::-webkit-scrollbar-thumb{background:var(--mint-soft);border-radius:5px;}
+table.sched{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.sched th{position:sticky;top:0;background:var(--mint-tint);color:var(--ink);font-weight:700;padding:9px 6px;text-align:right;font-size:11.5px;}
+table.sched th:first-child{text-align:left;border-radius:8px 0 0 0;} table.sched th:last-child{border-radius:0 8px 0 0;}
+table.sched td{padding:8px 6px;text-align:right;font-weight:600;border-bottom:1px solid var(--line);color:var(--ink-soft);}
+table.sched td:first-child{text-align:left;color:var(--ink);font-weight:700;}
+table.sched td.pay{color:var(--mint-deep);font-weight:700;}
+table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
 
 /* =====================================================================
    BOTTOM NAV + FAB
@@ -579,28 +588,39 @@ input,select{font-family:inherit;}
       <!-- ===== INSTALLMENT FIELDS ===== -->
       <div id="grpInstallment">
         <div style="display:flex;gap:12px;">
-          <div class="field" style="flex:1;"><label>ยอดผ่อน/เดือน</label>
-            <div class="with-unit"><input class="inp" id="fMonthly" type="number" inputmode="numeric" placeholder="3200"/><span class="u">฿</span></div></div>
+          <div class="field" style="flex:1;"><label>เงินต้น / ยอดเงินกู้</label>
+            <div class="with-unit"><input class="inp" id="fPrincipal" type="number" inputmode="numeric" placeholder="40000"/><span class="u">฿</span></div></div>
           <div class="field" style="flex:1;"><label>จำนวนงวด</label>
-            <div class="with-unit"><input class="inp" id="fTotal" type="number" inputmode="numeric" placeholder="10"/><span class="u">งวด</span></div></div>
-        </div>
-        <div class="field"><label>ผ่อนไปแล้ว</label>
-          <div class="with-unit"><input class="inp" id="fPaid" type="number" inputmode="numeric" placeholder="0"/><span class="u">งวด</span></div></div>
-        <div class="field" style="margin-bottom:8px;">
-          <label>💸 เงินต้น / ราคาเงินสด <span style="color:var(--ink-faint);font-weight:500;">(ไม่บังคับ)</span></label>
-          <div class="with-unit"><input class="inp" id="fPrincipal" type="number" inputmode="numeric" placeholder="เช่น 30000"/><span class="u">฿</span></div>
+            <div class="with-unit"><input class="inp" id="fTotal" type="number" inputmode="numeric" placeholder="36"/><span class="u">งวด</span></div></div>
         </div>
         <div style="display:flex;gap:12px;">
-          <div class="field" style="flex:1;"><label>ดอกเบี้ย %/ปี <span style="color:var(--ink-faint);font-weight:500;">(ถ้ามี)</span></label>
-            <div class="with-unit"><input class="inp" id="fRate" type="number" inputmode="decimal" placeholder="0"/><span class="u">%</span></div></div>
-          <div class="field" style="flex:1;"><label>วิธีคิดดอก</label>
-            <div class="seg-row" id="fRateType">
-              <div class="seg-opt on" data-v="effective" style="min-width:auto;font-size:11.5px;padding:12px 4px;">ลดต้นลดดอก</div>
-              <div class="seg-opt" data-v="flat" style="min-width:auto;font-size:11.5px;padding:12px 4px;">คงที่</div>
-            </div></div>
+          <div class="field" style="flex:1;"><label>ดอกเบี้ย %/ปี</label>
+            <div class="with-unit"><input class="inp" id="fRate" type="number" inputmode="decimal" placeholder="16"/><span class="u">%</span></div></div>
+          <div class="field" style="flex:1;"><label>ผ่อนไปแล้ว</label>
+            <div class="with-unit"><input class="inp" id="fPaid" type="number" inputmode="numeric" placeholder="0"/><span class="u">งวด</span></div></div>
         </div>
-        <button class="btn ghost" type="button" style="margin:0 0 8px;padding:11px;font-size:13.5px;" onclick="calcMonthly()">🧮 คำนวณยอดผ่อน/เดือน จากดอกเบี้ย</button>
-        <div id="interestHint" style="font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 4px 6px;"></div>
+        <div class="field">
+          <label>วิธีคิดดอกเบี้ย (ลดต้นลดดอก)</label>
+          <div class="seg-row" id="fMethod">
+            <div class="seg-opt on" data-v="equal" style="min-width:auto;font-size:12px;padding:12px 6px;">📊 ผ่อนเท่ากัน</div>
+            <div class="seg-opt" data-v="declining" style="min-width:auto;font-size:12px;padding:12px 6px;">📉 จ่ายลดตามยอด</div>
+          </div>
+        </div>
+        <div class="field" id="declineRow" style="display:none;">
+          <label>% เงินต้นต่อเดือน <span style="color:var(--ink-faint);font-weight:500;">(บัตรกดเงินสด เช่น UOB)</span></label>
+          <div class="with-unit"><input class="inp" id="fDecline" type="number" inputmode="decimal" placeholder="เช่น 10"/><span class="u">%</span></div>
+          <div style="font-size:11px;color:var(--ink-faint);font-weight:600;margin:6px 4px 0;">หาจากตารางแบงค์: เงินต้นงวดแรก ÷ ยอดเงิน × 100</div>
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>ยอดผ่อน/เดือน <span style="color:var(--ink-faint);font-weight:500;">(เว้นว่าง = คำนวณให้)</span></label>
+          <div class="with-unit"><input class="inp" id="fMonthly" type="number" inputmode="numeric" placeholder="คำนวณอัตโนมัติ"/><span class="u">฿</span></div>
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>🏦 ยอดที่ต้องชำระทั้งหมด — จากแอพแบงค์ <span style="color:var(--ink-faint);font-weight:500;">(ใส่เพื่อให้ดอกตรงเป๊ะ)</span></label>
+          <div class="with-unit"><input class="inp" id="fBankTotal" type="number" inputmode="decimal" placeholder="เช่น 108550.88"/><span class="u">฿</span></div>
+        </div>
+        <button class="btn ghost" type="button" style="margin:0 0 8px;padding:11px;font-size:13.5px;" onclick="calcMonthly()">🧮 คำนวณ + ดูตารางผ่อน</button>
+        <div id="interestHint" style="font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 4px 6px;line-height:1.5;"></div>
       </div>
 
       <!-- ===== REVOLVING FIELDS ===== -->
@@ -683,15 +703,56 @@ function revolvingPlan(balance, ratePct, payment){
   while(bal>0 && months<600){ const i=bal*r; interest+=i; bal=bal+i-payment; if(bal<0)bal=0; months++; }
   return {months, totalInterest:interest, never:false};
 }
-function billMonthly(b){ return b.mode==='revolving' ? (+b.payment||0) : (+b.monthly||0); }
+/* ---------- amortization schedule engine (reducing-balance / ลดต้นลดดอก) ----------
+   method 'equal'    = ผ่อนเท่ากันทุกงวด (standard amortization) — รถ/บ้าน/CPFCDC
+   method 'declining'= จ่ายลดตามยอด: เงินต้น/งวด = declinePct% ของยอดคงเหลือ — Click for Cash
+   ดอกเบี้ย/งวด = ยอดคงเหลือ × อัตราต่อปี ÷ 12 (โดยประมาณ; แบงค์คิดรายวันตามวันจริง)        */
+function hasSchedule(b){ return b.mode!=='revolving' && b.method && (+b.principal>0) && (+b.total>0); }
+function buildSchedule(b){
+  const P=+b.principal||0, n=Math.max(1,+b.total||0), mRate=(+b.rate||0)/100/12;
+  const method=b.method||'equal'; const rows=[]; let bal=P;
+  if(method==='declining'){
+    const dp=Math.max(0,Math.min(1,(+b.declinePct||0)/100));
+    for(let m=1;m<=n;m++){
+      const interest=bal*mRate;
+      let principalPaid = (m===n) ? bal : bal*dp;
+      if(principalPaid>bal) principalPaid=bal;
+      bal=Math.max(0, bal-principalPaid);
+      rows.push({n:m, principal:principalPaid, interest, payment:principalPaid+interest, balance:bal});
+    }
+  }else{
+    const pmt = mRate>0 ? P*mRate/(1-Math.pow(1+mRate,-n)) : P/n;
+    for(let m=1;m<=n;m++){
+      const interest=bal*mRate;
+      let principalPaid = (m===n) ? bal : (pmt-interest);
+      if(principalPaid>bal) principalPaid=bal;
+      bal=Math.max(0, bal-principalPaid);
+      rows.push({n:m, principal:principalPaid, interest, payment:principalPaid+interest, balance:bal});
+    }
+  }
+  return rows;
+}
+function scheduleNextPayment(b){ const r=buildSchedule(b); return (r[Math.min(+b.paid||0, r.length-1)]||{}).payment||0; }
+
+function billMonthly(b){
+  if(b.mode==='revolving') return +b.payment||0;
+  if(hasSchedule(b)) return scheduleNextPayment(b);
+  return +b.monthly||0;
+}
 function billActive(b){ return b.mode==='revolving' ? (+b.balance||0)>0 : (+b.paid||0)<(+b.total||0); }
-function billRemaining(b){ return b.mode==='revolving' ? (+b.balance||0) : Math.max(0,((+b.total||0)-(+b.paid||0))*(+b.monthly||0)); }
+function billRemaining(b){
+  if(b.mode==='revolving') return +b.balance||0;
+  if(hasSchedule(b)) return buildSchedule(b).slice(+b.paid||0).reduce((s,r)=>s+r.payment,0);
+  return Math.max(0,((+b.total||0)-(+b.paid||0))*(+b.monthly||0));
+}
 function billPayoffMonths(b){
   if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.months; }
   return Math.max(0,(+b.total||0)-(+b.paid||0));
 }
 function billInterest(b){
   if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.totalInterest; }
+  if(+b.bankTotal>0) return Math.max(0,(+b.bankTotal)-(+b.principal||0));
+  if(hasSchedule(b)) return buildSchedule(b).reduce((s,r)=>s+r.interest,0);
   const pr=+b.principal||0; return pr>0?Math.max(0,(+b.monthly||0)*(+b.total||0)-pr):0;
 }
 function billBalanceAt(b, m){
@@ -700,6 +761,7 @@ function billBalanceAt(b, m){
     for(let k=0;k<m && bal>0;k++){ bal=bal+bal*r-pay; if(bal<0)bal=0; }
     return Math.max(0,bal);
   }
+  if(hasSchedule(b)) return buildSchedule(b).slice((+b.paid||0)+m).reduce((s,r)=>s+r.payment,0);
   return Math.max(0,((+b.total||0)-(+b.paid||0)-m))*(+b.monthly||0);
 }
 
@@ -982,7 +1044,10 @@ function runSim(){
    ===================================================================== */
 let editingId=null, curMode='installment';
 function setType(v){ document.querySelectorAll('#fType .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); }
-function setRateType(v){ document.querySelectorAll('#fRateType .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); }
+function setMethod(v){
+  document.querySelectorAll('#fMethod .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  document.getElementById('declineRow').style.display = v==='declining' ? '' : 'none';
+}
 function setMode(v){
   curMode=v;
   document.querySelectorAll('#fMode .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
@@ -990,7 +1055,7 @@ function setMode(v){
   document.getElementById('grpRevolving').style.display = v==='revolving'?'':'none';
 }
 function openSheet(id){
-  const all=['fName','fMonthly','fTotal','fPaid','fDue','fPrincipal','fTag','fRate','fBalance','fRevRate','fPayment'];
+  const all=['fName','fMonthly','fTotal','fPaid','fDue','fPrincipal','fTag','fRate','fDecline','fBankTotal','fBalance','fRevRate','fPayment'];
   all.forEach(f=>document.getElementById(f).value='');
   if(typeof id==='number'){
     const b=state.bills.find(x=>x.id===id); if(!b)return;
@@ -1006,18 +1071,20 @@ function openSheet(id){
       document.getElementById('fRevRate').value=b.rate||'';
       document.getElementById('fPayment').value=b.payment||'';
     }else{
-      document.getElementById('fMonthly').value=b.monthly;
+      document.getElementById('fMonthly').value=b.monthly||'';
       document.getElementById('fTotal').value=b.total;
       document.getElementById('fPaid').value=b.paid;
       document.getElementById('fPrincipal').value=b.principal||'';
       document.getElementById('fRate').value=b.rate||'';
-      setRateType(b.rateType||'effective');
+      document.getElementById('fDecline').value=b.declinePct||'';
+      document.getElementById('fBankTotal').value=b.bankTotal||'';
+      setMethod(b.method||'equal');
     }
   }else{
     editingId=null;
     document.getElementById('sheetTitle').textContent='➕ เพิ่มรายการผ่อน';
     document.getElementById('sheetSaveBtn').textContent='🌿 บันทึกรายการ';
-    setType('credit'); setMode('installment'); setRateType('effective');
+    setType('credit'); setMode('installment'); setMethod('equal');
   }
   renderTagSug(); updateInterestHint(); updateRevolvingHint();
   document.getElementById('sheetBack').classList.add('show');
@@ -1029,32 +1096,44 @@ function renderTagSug(){
 }
 function closeSheet(){document.getElementById('sheetBack').classList.remove('show'); editingId=null;}
 
+function formLoan(){ // build a temp bill from the installment form
+  return {
+    mode:'installment',
+    method:(document.querySelector('#fMethod .seg-opt.on')||{}).dataset?.v||'equal',
+    principal:+document.getElementById('fPrincipal').value||0,
+    rate:+document.getElementById('fRate').value||0,
+    total:+document.getElementById('fTotal').value||0,
+    paid:+document.getElementById('fPaid').value||0,
+    declinePct:+document.getElementById('fDecline').value||0,
+    bankTotal:+document.getElementById('fBankTotal').value||0,
+    monthly:+document.getElementById('fMonthly').value||0
+  };
+}
 function calcMonthly(){
-  const principal=+document.getElementById('fPrincipal').value||0;
-  const rate=+document.getElementById('fRate').value||0;
-  const n=+document.getElementById('fTotal').value||0;
-  const type=document.querySelector('#fRateType .seg-opt.on').dataset.v;
-  if(!principal||!n){toast('กรอกเงินต้น และจำนวนงวดก่อนน้า~');return;}
-  let m;
-  if(rate<=0) m=principal/n;
-  else if(type==='flat') m=(principal + principal*(rate/100)*(n/12))/n;
-  else { const r=rate/100/12; m=principal*r/(1-Math.pow(1+r,-n)); }
-  document.getElementById('fMonthly').value=Math.round(m);
+  const b=formLoan();
+  if(!b.principal||!b.total){toast('กรอกเงินต้น และจำนวนงวดก่อนน้า~');return;}
+  if(b.method==='declining'&&!b.declinePct){toast('กรอก % เงินต้นต่อเดือนก่อนน้า~');return;}
+  const m=Math.round(scheduleNextPayment({...b,paid:0}));
+  document.getElementById('fMonthly').value=m;
   updateInterestHint();
-  toast('คำนวณยอดผ่อนให้แล้ว ✨ ('+baht(Math.round(m))+'/เดือน)');
+  toast('คำนวณให้แล้ว ✨ ยอดผ่อนเริ่มต้น '+baht(m)+'/เดือน');
 }
 function updateInterestHint(){
-  const monthly=+document.getElementById('fMonthly').value||0;
-  const total=+document.getElementById('fTotal').value||0;
-  const principal=+document.getElementById('fPrincipal').value||0;
+  const b=formLoan();
   const el=document.getElementById('interestHint');
-  if(monthly&&total&&principal){
-    const interest=monthly*total-principal;
-    el.textContent = interest>0
-      ? `ผ่อนรวม ${baht(monthly*total)} → ดอกเบี้ย ${baht(interest)} (${Math.round(interest/principal*100)}% ของเงินต้น)`
+  if(b.principal&&b.total&&hasSchedule(b)){
+    const interest=billInterest(b), totalPay=b.bankTotal>0?b.bankTotal:b.principal+interest;
+    const firstPay=Math.round(scheduleNextPayment({...b,paid:0}));
+    const pin=b.bankTotal>0?' (ตรงกับแบงค์ ✓)':'';
+    el.innerHTML = interest>0
+      ? `งวดแรก ~${baht(firstPay)} · ผ่อนรวม ${baht(totalPay)} · ดอกเบี้ย ${baht(interest)}${pin}`
       : `ผ่อน 0% ไม่มีดอกเบี้ย เก่งมาก! 🎉`;
     el.style.color = interest>0 ? 'var(--ink-soft)' : 'var(--mint-deep)';
-  }else{ el.textContent=''; }
+  } else if(b.monthly&&b.total&&b.principal){
+    const interest=b.monthly*b.total-b.principal;
+    el.textContent = interest>0?`ผ่อนรวม ${baht(b.monthly*b.total)} → ดอกเบี้ย ${baht(interest)}`:`ผ่อน 0% ไม่มีดอกเบี้ย 🎉`;
+    el.style.color='var(--ink-soft)';
+  } else { el.textContent=''; }
 }
 function updateRevolvingHint(){
   const bal=+document.getElementById('fBalance').value||0;
@@ -1068,7 +1147,7 @@ function updateRevolvingHint(){
 }
 document.addEventListener('input',e=>{
   const id=e.target.id;
-  if(['fMonthly','fTotal','fPrincipal','fRate'].includes(id)) updateInterestHint();
+  if(['fMonthly','fTotal','fPrincipal','fRate','fDecline','fBankTotal'].includes(id)) updateInterestHint();
   if(['fBalance','fRevRate','fPayment'].includes(id)) updateRevolvingHint();
 });
 document.getElementById('sheetBack').addEventListener('click',closeSheet);
@@ -1078,7 +1157,10 @@ function segPick(containerId){
     document.querySelectorAll('#'+containerId+' .seg-opt').forEach(x=>x.classList.remove('on')); o.classList.add('on');
   });
 }
-segPick('fType'); segPick('fRateType');
+segPick('fType');
+document.getElementById('fMethod').addEventListener('click',e=>{
+  const o=e.target.closest('.seg-opt'); if(!o)return; setMethod(o.dataset.v); updateInterestHint();
+});
 document.getElementById('fMode').addEventListener('click',e=>{
   const o=e.target.closest('.seg-opt'); if(!o)return; setMode(o.dataset.v);
 });
@@ -1097,19 +1179,24 @@ function saveBill(){
     if(!name||!balance||!payment){toast('กรอกชื่อ ยอดคงเหลือ และยอดจ่าย/เดือนก่อนน้า~');return;}
     data={mode:'revolving',name,type,balance,rate,payment,due,tag};
   }else{
-    const monthly=+document.getElementById('fMonthly').value||0;
+    let monthly=+document.getElementById('fMonthly').value||0;
     const total=+document.getElementById('fTotal').value||0;
     const paid=Math.min(total,Math.max(0,+document.getElementById('fPaid').value||0));
     const principal=+document.getElementById('fPrincipal').value||0;
     const rate=+document.getElementById('fRate').value||0;
-    const rateType=document.querySelector('#fRateType .seg-opt.on').dataset.v;
-    if(!name||!monthly||!total){toast('กรอกชื่อ ยอดผ่อน และจำนวนงวดก่อนน้า~');return;}
-    data={mode:'installment',name,type,monthly,total,paid,due,principal,rate,rateType,tag};
+    const method=document.querySelector('#fMethod .seg-opt.on').dataset.v;
+    const declinePct=+document.getElementById('fDecline').value||0;
+    const bankTotal=+document.getElementById('fBankTotal').value||0;
+    if(!name||!total||(!principal&&!monthly)){toast('กรอกชื่อ จำนวนงวด และเงินต้น (หรือยอดผ่อน/เดือน) ก่อนน้า~');return;}
+    if(principal&&method==='declining'&&!declinePct){toast('โหมดจ่ายลดตามยอด ต้องกรอก % เงินต้นต่อเดือนน้า~');return;}
+    // auto-fill monthly from schedule if blank
+    if(principal&&!monthly) monthly=Math.round(scheduleNextPayment({mode:'installment',method,principal,rate,total,declinePct,paid:0}));
+    data={mode:'installment',name,type,monthly,total,paid,due,principal,rate,method,declinePct,bankTotal,tag};
   }
 
   if(editingId!=null){
     const b=state.bills.find(x=>x.id===editingId);
-    if(b){ ['monthly','total','paid','principal','rate','rateType','balance','payment'].forEach(k=>delete b[k]); Object.assign(b,data); }
+    if(b){ ['monthly','total','paid','principal','rate','rateType','method','declinePct','bankTotal','balance','payment'].forEach(k=>delete b[k]); Object.assign(b,data); }
     const id=editingId;
     save(); closeSheet(); toast('แก้ไขรายการแล้ว ✏️');
     currentDetailId=id; renderDetail(id); go('detail');
@@ -1180,6 +1267,26 @@ function renderRevolvingDetail(b){
     </div>`;
 }
 
+function scheduleTableHTML(b){
+  if(!hasSchedule(b)) return '';
+  const rows=buildSchedule(b), paid=+b.paid||0, rem=rows.slice(paid);
+  if(!rem.length) return '';
+  const start=nextDueDate(b.due);
+  const body=rem.map((r,i)=>{
+    const d=new Date(start.getFullYear(),start.getMonth()+i,1);
+    const label=TH_MONTH[d.getMonth()]+' '+((d.getFullYear()+543)%100);
+    return `<tr><td>${label}</td><td>${baht(r.principal)}</td><td>${baht(r.interest)}</td><td class="pay">${baht(r.payment)}</td></tr>`;
+  }).join('');
+  const methodTxt = b.method==='declining' ? 'จ่ายลดตามยอด' : 'ผ่อนเท่ากัน';
+  return `<div class="card sched-card">
+    <div class="sec-head" style="margin:0 0 3px;"><h3>📋 ตารางผ่อนชำระ</h3><span style="font-size:11.5px;color:var(--mint-deep);font-weight:700;">${methodTxt}</span></div>
+    <div style="font-size:10.5px;color:var(--ink-faint);font-weight:600;margin:0 0 8px;">ประมาณการลดต้นลดดอก · แบงค์คิดดอกรายวันอาจต่างเล็กน้อย</div>
+    <div class="sched-wrap"><table class="sched">
+      <thead><tr><th>เดือน</th><th>เงินต้น</th><th>ดอกเบี้ย</th><th>ยอดผ่อน</th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+  </div>`;
+}
+
 function renderDetail(id){
   const b=state.bills.find(x=>x.id===id);
   const wrap=document.getElementById('detailWrap');
@@ -1188,22 +1295,26 @@ function renderDetail(id){
   if(b.mode==='revolving'){ renderRevolvingDetail(b); return; }
   const t=TYPES[b.type]||TYPES.other;
   const paid=+b.paid||0, tot=+b.total||1, rem=Math.max(0,tot-paid), pct=Math.min(100,Math.round(paid/tot*100));
-  const remainBaht=rem*(+b.monthly||0), paidBaht=paid*(+b.monthly||0);
-  const principal=+b.principal||0, totalPay=(+b.monthly||0)*tot, interest=totalPay-principal;
+  const monthlyNow=billMonthly(b);
+  const remainBaht=billRemaining(b), interest=billInterest(b);
+  const principal=+b.principal||0;
+  const totalPay = (+b.bankTotal>0) ? (+b.bankTotal) : (principal>0 ? principal+interest : monthlyNow*tot);
+  const paidBaht = Math.max(0, totalPay-remainBaht);
   const intPct = principal>0 ? Math.round(interest/principal*100) : 0;
   const days=daysUntil(b.due), dt=nextDueDate(b.due), soon=days<=3;
   const done=paid>=tot;
   const end=new Date(); end.setMonth(end.getMonth()+Math.max(0,rem-1));
   const endLabel=TH_MONTH[end.getMonth()]+' '+((end.getFullYear()+543)%100);
   const when = days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
+  const methodLabel = hasSchedule(b) ? (b.method==='declining'?' · จ่ายลดตามยอด':' · ผ่อนเท่ากัน') : '';
 
   wrap.innerHTML=`
     <button class="back-btn" onclick="go('list')">← กลับไปรายการ</button>
     <div class="detail-hero">
       <div class="ava" style="background:${t.bg}">${t.ic}</div>
       <div class="nm">${esc(b.name)}</div>
-      <div class="ty">${t.label}${b.tag?` · #${esc(b.tag)}`:''}</div>
-      <div class="big-amt">${baht(b.monthly)}<span>/เดือน</span></div>
+      <div class="ty">${t.label}${b.tag?` · #${esc(b.tag)}`:''}${methodLabel}</div>
+      <div class="big-amt">${baht(monthlyNow)}<span>/เดือน</span></div>
       <div class="bar" style="margin:14px 0 7px;"><i style="width:${pct}%"></i></div>
       <div style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">ผ่อนแล้ว ${paid}/${tot} งวด · ${pct}%</div>
     </div>
@@ -1216,12 +1327,14 @@ function renderDetail(id){
     </div>
 
     ${principal>0 ? `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
-      <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">💸 ดอกเบี้ยที่จ่ายจริง</div>
+      <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">💸 ดอกเบี้ยรวม${(+b.bankTotal>0)?' (ตรงกับแบงค์ ✓)':''}</div>
         <div style="font-family:'Itim';font-size:24px;color:${interest>0?'var(--danger)':'var(--mint-deep)'};line-height:1.1;">${baht(Math.max(0,interest))}
         <span style="font-size:13px;color:var(--ink-soft);">(${intPct}% ของเงินต้น)</span></div></div>
       <div style="text-align:right;font-size:11.5px;color:var(--ink-soft);font-weight:600;">
         เงินต้น ${baht(principal)}<br>ผ่อนรวม ${baht(totalPay)}</div>
     </div>` : ''}
+
+    ${scheduleTableHTML(b)}
 
     ${done?'':`<div class="due-card">
       <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
@@ -1275,10 +1388,9 @@ function saveIncome(){
 }
 function seedDemo(){
   state={income:30000,notif:state.notif||{enabled:false},notifLog:{},bills:[
-    {id:1,mode:'installment',name:'iPhone 15 ผ่อน 0%',type:'credit',monthly:3200,total:10,paid:3,due:25,principal:32000,rate:0,rateType:'effective',tag:'ของอยากได้'},
-    {id:2,mode:'installment',name:'มอเตอร์ไซค์ Honda',type:'loan',monthly:2400,total:20,paid:8,due:5,principal:40000,rate:7,rateType:'flat',tag:'จำเป็น'},
-    {id:3,mode:'installment',name:'บัตรกดเงินสด FirstChoice',type:'cash',monthly:1500,total:10,paid:2,due:15,principal:13000,rate:25,rateType:'effective',tag:'ฉุกเฉิน'},
-    {id:4,mode:'installment',name:'โซฟา Index ผ่อน 6 ด.',type:'credit',monthly:2000,total:6,paid:1,due:28,principal:11000,rate:18,rateType:'flat',tag:'ของใช้'},
+    {id:1,mode:'installment',name:'iPhone 15 ผ่อน 0%',type:'credit',principal:32000,rate:0,method:'equal',total:10,paid:3,due:25,tag:'ของอยากได้'},
+    {id:2,mode:'installment',name:'สินเชื่อรถ',type:'loan',principal:40000,rate:22,method:'equal',total:48,paid:8,due:8,tag:'จำเป็น'},
+    {id:3,mode:'installment',name:'Click for Cash UOB',type:'cash',principal:97000,rate:16,method:'declining',declinePct:10,total:36,paid:11,due:14,bankTotal:108550.88,tag:'UOB'},
     {id:5,mode:'revolving',name:'บัตรเครดิต KTC',type:'credit',balance:28000,rate:16,payment:3000,due:20,tag:'หมุนเวียน'},
   ]};
   save(); toast('โหลดข้อมูลตัวอย่างแล้ว 🎁'); go('home');
