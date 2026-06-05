@@ -536,7 +536,7 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       </div>
 
       <div class="card">
-        <div class="row-set" onclick="seedDemo()"><div class="ic">📥</div><div class="tx"><div class="a">โหลดรายการหนี้ของฉัน</div><div class="b">บัตร/สินเชื่อจริง 7 รายการ (UOB·SCB·Lotus·TTB)</div></div><span style="color:var(--ink-faint);">›</span></div>
+        <div class="row-set" onclick="seedDemo()"><div class="ic">📥</div><div class="tx"><div class="a">โหลดรายการหนี้ของฉัน</div><div class="b">บัตร/สินเชื่อจริง 12 รายการ (UOB·SCB·KBank·Lotus·TTB·กองทุน)</div></div><span style="color:var(--ink-faint);">›</span></div>
         <div class="row-set" onclick="resetAll()"><div class="ic">🗑️</div><div class="tx"><div class="a">ล้างข้อมูลทั้งหมด</div><div class="b">เริ่มต้นใหม่</div></div><span style="color:var(--ink-faint);">›</span></div>
       </div>
       <div style="text-align:center;color:var(--ink-faint);font-size:12px;font-weight:600;padding:8px 0 4px;">
@@ -564,18 +564,19 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       <p class="lead">เลือกรูปแบบหนี้ แล้วกรอกข้อมูล</p>
 
       <div class="field">
-        <label>รูปแบบหนี้</label>
+        <label>รูปแบบ</label>
         <div class="seg-row" id="fMode">
-          <div class="seg-opt on" data-v="installment">📆 ผ่อนเป็นงวด</div>
-          <div class="seg-opt" data-v="revolving">💳 บัตรหมุนเวียน</div>
+          <div class="seg-opt on" data-v="installment" style="min-width:auto;font-size:11.5px;padding:12px 4px;">📆 ผ่อนเป็นงวด</div>
+          <div class="seg-opt" data-v="revolving" style="min-width:auto;font-size:11.5px;padding:12px 4px;">💳 บัตรหมุนเวียน</div>
+          <div class="seg-opt" data-v="subscription" style="min-width:auto;font-size:11.5px;padding:12px 4px;">🔁 ค่าบริการ</div>
         </div>
       </div>
 
       <div class="field">
         <label>ชื่อรายการ</label>
-        <input class="inp" id="fName" placeholder="เช่น iPhone 15, บัตร KTC" />
+        <input class="inp" id="fName" placeholder="เช่น iPhone 15, Netflix, บัตร KTC" />
       </div>
-      <div class="field">
+      <div class="field" id="typeField">
         <label>ประเภท</label>
         <div class="seg-row" id="fType">
           <div class="seg-opt on" data-v="credit">💳 บัตรเครดิต</div>
@@ -634,6 +635,14 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
             <div class="with-unit"><input class="inp" id="fPayment" type="number" inputmode="numeric" placeholder="3000"/><span class="u">฿</span></div></div>
         </div>
         <div id="revolvingHint" style="font-size:12.5px;font-weight:700;margin:0 4px 8px;line-height:1.5;"></div>
+      </div>
+
+      <!-- ===== SUBSCRIPTION FIELDS ===== -->
+      <div id="grpSubscription" style="display:none;">
+        <div class="field" style="margin-bottom:6px;"><label>ค่าบริการ / เดือน</label>
+          <div class="with-unit"><input class="inp" id="fAmount" type="number" inputmode="decimal" placeholder="419"/><span class="u">฿</span></div>
+          <div style="font-size:11.5px;color:var(--ink-faint);font-weight:600;margin:7px 4px 0;">เช่น Netflix, YouTube Premium, Spotify, เน็ตบ้าน, ค่ามือถือ, ประกัน ฯลฯ</div>
+        </div>
       </div>
 
       <!-- ===== SHARED ===== -->
@@ -734,28 +743,37 @@ function buildSchedule(b){
 }
 function scheduleNextPayment(b){ const r=buildSchedule(b); return (r[Math.min(+b.paid||0, r.length-1)]||{}).payment||0; }
 
+function isDebt(b){ return b.mode!=='subscription'; }   // subscription = recurring expense, not debt
 function billMonthly(b){
+  if(b.mode==='subscription') return +b.amount||0;
   if(b.mode==='revolving') return +b.payment||0;
   if(hasSchedule(b)) return scheduleNextPayment(b);
   return +b.monthly||0;
 }
-function billActive(b){ return b.mode==='revolving' ? (+b.balance||0)>0 : (+b.paid||0)<(+b.total||0); }
+function billActive(b){
+  if(b.mode==='subscription') return true;
+  return b.mode==='revolving' ? (+b.balance||0)>0 : (+b.paid||0)<(+b.total||0);
+}
 function billRemaining(b){
+  if(b.mode==='subscription') return 0;
   if(b.mode==='revolving') return +b.balance||0;
   if(hasSchedule(b)) return buildSchedule(b).slice(+b.paid||0).reduce((s,r)=>s+r.payment,0);
   return Math.max(0,((+b.total||0)-(+b.paid||0))*(+b.monthly||0));
 }
 function billPayoffMonths(b){
+  if(b.mode==='subscription') return 0;
   if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.months; }
   return Math.max(0,(+b.total||0)-(+b.paid||0));
 }
 function billInterest(b){
+  if(b.mode==='subscription') return 0;
   if(b.mode==='revolving'){ const p=revolvingPlan(b.balance,b.rate,b.payment); return p.never?Infinity:p.totalInterest; }
   if(+b.bankTotal>0) return Math.max(0,(+b.bankTotal)-(+b.principal||0));
   if(hasSchedule(b)) return buildSchedule(b).reduce((s,r)=>s+r.interest,0);
   const pr=+b.principal||0; return pr>0?Math.max(0,(+b.monthly||0)*(+b.total||0)-pr):0;
 }
 function billBalanceAt(b, m){
+  if(b.mode==='subscription') return 0;
   if(b.mode==='revolving'){
     let bal=+b.balance||0; const r=(+b.rate||0)/100/12, pay=+b.payment||0;
     for(let k=0;k<m && bal>0;k++){ bal=bal+bal*r-pay; if(bal<0)bal=0; }
@@ -835,7 +853,7 @@ function render(){
    DEBT TREND CHART (projection of total outstanding debt)
    ===================================================================== */
 function trendCardHTML(){
-  const active=state.bills.filter(billActive);
+  const active=state.bills.filter(b=>billActive(b)&&isDebt(b));
   if(!active.length) return '';
   const payoffs=active.map(billPayoffMonths);
   const anyNever=payoffs.some(x=>!isFinite(x));
@@ -882,12 +900,12 @@ function trendCardHTML(){
    PORTFOLIO SUMMARY (รวมทั้งพอร์ต + ดอกเบี้ยรวม)
    ===================================================================== */
 function summaryHTML(){
-  const active=state.bills.filter(billActive);
-  if(!active.length) return '';
+  const active=state.bills.filter(b=>billActive(b)&&isDebt(b));
+  const subsTotal=state.bills.filter(b=>b.mode==='subscription').reduce((s,b)=>s+(+b.amount||0),0);
+  if(!active.length && !subsTotal) return '';
   const remainTotal=active.reduce((s,b)=>s+billRemaining(b),0);
   let interestTotal=0, hasInterest=false, anyInf=false;
-  state.bills.forEach(b=>{
-    if(!billActive(b) && b.mode!=='revolving') return;
+  active.forEach(b=>{
     const it=billInterest(b);
     if(it===Infinity){ anyInf=true; hasInterest=true; }
     else if(it>0){ interestTotal+=it; hasInterest=true; }
@@ -904,7 +922,7 @@ function summaryHTML(){
     <div class="kv" style="margin-bottom:0;">
       <div class="cell"><div class="k">หนี้คงเหลือรวม</div><div class="v" style="color:var(--danger)">${baht(remainTotal)}</div></div>
       <div class="cell"><div class="k">ดอกเบี้ยรวมทั้งพอร์ต</div><div class="v" style="color:#E89B5C">${intStr}</div></div>
-      <div class="cell"><div class="k">กำลังผ่อนอยู่</div><div class="v">${active.length} รายการ</div></div>
+      <div class="cell"><div class="k">${subsTotal>0?'ค่าบริการ/เดือน':'กำลังผ่อนอยู่'}</div><div class="v"${subsTotal>0?' style="color:#9B7BE0"':''}>${subsTotal>0?baht(subsTotal):active.length+' รายการ'}</div></div>
       <div class="cell"><div class="k">ปลอดหนี้ภายใน</div><div class="v">${endLabel}</div></div>
     </div>
   </div>`;
@@ -921,11 +939,15 @@ function buildChips(){
   document.getElementById('chips').innerHTML=html;
 }
 
+const SUB_T={ic:'🔁',label:'ค่าบริการรายเดือน',bg:'#EFEAFE',fg:'#9B7BE0'};
 function remCard(b){
-  const days=daysUntil(b.due), dt=nextDueDate(b.due), t=TYPES[b.type]||TYPES.other;
+  const days=daysUntil(b.due), dt=nextDueDate(b.due);
+  const t = b.mode==='subscription' ? SUB_T : (TYPES[b.type]||TYPES.other);
   const soon=days<=3;
   const when = days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
-  const sub = b.mode==='revolving' ? `${when} · จ่ายบัตรหมุนเวียน` : `${when} · งวดที่ ${(+b.paid||0)+1}/${b.total}`;
+  const sub = b.mode==='revolving' ? `${when} · จ่ายบัตรหมุนเวียน`
+    : b.mode==='subscription' ? `${when} · ค่าบริการรายเดือน`
+    : `${when} · งวดที่ ${(+b.paid||0)+1}/${b.total}`;
   return `<div class="rem">
     <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
     <div class="info"><div class="n">${t.ic} ${esc(b.name)}</div>
@@ -947,10 +969,22 @@ function renderList(){
     return;
   }
   wrap.innerHTML=bills.map((b)=>{
-    const t=TYPES[b.type]||TYPES.other;
+    const t = b.mode==='subscription' ? SUB_T : (TYPES[b.type]||TYPES.other);
     const days=daysUntil(b.due), soon=days<=3;
     const dueTxt=`📅 ${days<=0?'วันนี้':'อีก '+days+'ว'}`;
     const nmLine=`<div class="nm"><span class="nm-txt">${esc(b.name)}</span>${b.tag?`<span class="tagchip">#${esc(b.tag)}</span>`:''}</div>`;
+    if(b.mode==='subscription'){
+      return `<div class="bill" onclick="openDetail(${b.id})">
+        <div class="ava" style="background:${t.bg}">${t.ic}</div>
+        <div class="mid">
+          ${nmLine}
+          <div class="ty">ค่าบริการรายเดือน</div>
+          <div class="meta" style="margin-top:9px;"><span>ทุกวันที่ ${b.due} ของเดือน</span><span>🔁 รายเดือน</span></div>
+        </div>
+        <div class="amt"><div class="a">${baht(b.amount)}</div>
+          <div class="due ${soon?'soon':''}">${dueTxt}</div></div>
+      </div>`;
+    }
     if(b.mode==='revolving'){
       const p=revolvingPlan(b.balance,b.rate,b.payment);
       const status=p.never?`<span style="color:var(--danger);font-weight:700;">⚠️ จ่ายไม่พอดอก</span>`:`หมดใน ${p.months} เดือน`;
@@ -1053,9 +1087,11 @@ function setMode(v){
   document.querySelectorAll('#fMode .seg-opt').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
   document.getElementById('grpInstallment').style.display = v==='installment'?'':'none';
   document.getElementById('grpRevolving').style.display = v==='revolving'?'':'none';
+  document.getElementById('grpSubscription').style.display = v==='subscription'?'':'none';
+  document.getElementById('typeField').style.display = v==='subscription'?'none':'';
 }
 function openSheet(id){
-  const all=['fName','fMonthly','fTotal','fPaid','fDue','fPrincipal','fTag','fRate','fDecline','fBankTotal','fBalance','fRevRate','fPayment'];
+  const all=['fName','fMonthly','fTotal','fPaid','fDue','fPrincipal','fTag','fRate','fDecline','fBankTotal','fBalance','fRevRate','fPayment','fAmount'];
   all.forEach(f=>document.getElementById(f).value='');
   if(typeof id==='number'){
     const b=state.bills.find(x=>x.id===id); if(!b)return;
@@ -1066,7 +1102,9 @@ function openSheet(id){
     document.getElementById('fDue').value=b.due;
     document.getElementById('fTag').value=b.tag||'';
     setType(b.type); setMode(b.mode||'installment');
-    if((b.mode||'installment')==='revolving'){
+    if(b.mode==='subscription'){
+      document.getElementById('fAmount').value=b.amount||'';
+    }else if(b.mode==='revolving'){
       document.getElementById('fBalance').value=b.balance||'';
       document.getElementById('fRevRate').value=b.rate||'';
       document.getElementById('fPayment').value=b.payment||'';
@@ -1172,7 +1210,11 @@ function saveBill(){
   const tag=document.getElementById('fTag').value.trim().replace(/[<>&#]/g,'').slice(0,20);
 
   let data;
-  if(curMode==='revolving'){
+  if(curMode==='subscription'){
+    const amount=+document.getElementById('fAmount').value||0;
+    if(!name||!amount){toast('กรอกชื่อ และค่าบริการ/เดือนก่อนน้า~');return;}
+    data={mode:'subscription',name,type:'other',amount,due,tag};
+  }else if(curMode==='revolving'){
     const balance=+document.getElementById('fBalance').value||0;
     const rate=+document.getElementById('fRevRate').value||0;
     const payment=+document.getElementById('fPayment').value||0;
@@ -1196,7 +1238,7 @@ function saveBill(){
 
   if(editingId!=null){
     const b=state.bills.find(x=>x.id===editingId);
-    if(b){ ['monthly','total','paid','principal','rate','rateType','method','declinePct','bankTotal','balance','payment'].forEach(k=>delete b[k]); Object.assign(b,data); }
+    if(b){ ['monthly','total','paid','principal','rate','rateType','method','declinePct','bankTotal','balance','payment','amount'].forEach(k=>delete b[k]); Object.assign(b,data); }
     const id=editingId;
     save(); closeSheet(); toast('แก้ไขรายการแล้ว ✏️');
     currentDetailId=id; renderDetail(id); go('detail');
@@ -1219,6 +1261,36 @@ let currentDetailId=null;
 function openDetail(id){
   currentDetailId=id; renderDetail(id); go('detail');
   document.querySelector('.nav [data-nav="list"]').classList.add('on');
+}
+
+function renderSubscriptionDetail(b){
+  const wrap=document.getElementById('detailWrap');
+  const days=daysUntil(b.due), dt=nextDueDate(b.due), soon=days<=3;
+  const when=days===0?'ครบกำหนดวันนี้!':days===1?'พรุ่งนี้':'อีก '+days+' วัน';
+  const yearly=(+b.amount||0)*12;
+  wrap.innerHTML=`
+    <button class="back-btn" onclick="go('list')">← กลับไปรายการ</button>
+    <div class="detail-hero">
+      <div class="ava" style="background:${SUB_T.bg}">${SUB_T.ic}</div>
+      <div class="nm">${esc(b.name)}</div>
+      <div class="ty">🔁 ค่าบริการรายเดือน${b.tag?` · #${esc(b.tag)}`:''}</div>
+      <div class="big-amt">${baht(b.amount)}<span>/เดือน</span></div>
+    </div>
+    <div class="kv">
+      <div class="cell"><div class="k">ต่อเดือน</div><div class="v" style="color:#9B7BE0">${baht(b.amount)}</div></div>
+      <div class="cell"><div class="k">ต่อปี</div><div class="v" style="color:var(--danger)">${baht(yearly)}</div></div>
+    </div>
+    <div class="due-card">
+      <div class="day ${soon?'soon':''}"><div class="d">${dt.getDate()}</div><div class="m">${TH_MONTH[dt.getMonth()]}</div></div>
+      <div class="info"><div class="a">รอบเก็บเงินถัดไป</div><div class="b ${soon?'soon':''}">${when}</div></div>
+    </div>
+    <div class="card" style="text-align:center;font-size:13px;font-weight:600;color:var(--ink-soft);line-height:1.6;">
+      💜 จ่าย ${baht(b.amount)}/เดือน = <b style="color:var(--danger)">${baht(yearly)}/ปี</b><br>ถ้าไม่ค่อยได้ใช้ ลองพิจารณายกเลิกเพื่อเซฟเงินน้า~
+    </div>
+    <div style="display:flex;gap:11px;margin-top:4px;">
+      <button class="btn ghost" style="flex:1;" onclick="openSheet(${b.id})">✏️ แก้ไข</button>
+      <button class="btn ghost" style="flex:1;color:var(--danger);" onclick="delBillById(${b.id})">🗑️ ลบ</button>
+    </div>`;
 }
 
 function renderRevolvingDetail(b){
@@ -1292,6 +1364,7 @@ function renderDetail(id){
   const wrap=document.getElementById('detailWrap');
   if(!b){wrap.innerHTML=`<button class="back-btn" onclick="go('list')">← กลับ</button>`+
     emptyFull('ไม่พบรายการ','รายการนี้อาจถูกลบไปแล้วน้า'); return;}
+  if(b.mode==='subscription'){ renderSubscriptionDetail(b); return; }
   if(b.mode==='revolving'){ renderRevolvingDetail(b); return; }
   const t=TYPES[b.type]||TYPES.other;
   const paid=+b.paid||0, tot=+b.total||1, rem=Math.max(0,tot-paid), pct=Math.min(100,Math.round(paid/tot*100));
@@ -1390,11 +1463,19 @@ function seedDemo(){
   state={income:30000,notif:state.notif||{enabled:false},notifLog:{},bills:[
     {id:1,mode:'installment',name:'UOB Click for Cash #1',type:'cash',principal:97000,rate:16,method:'declining',declinePct:10,total:36,paid:11,due:14,bankTotal:108550.88,tag:'UOB'},
     {id:2,mode:'installment',name:'UOB Click for Cash #2',type:'cash',principal:39000,rate:16,method:'declining',declinePct:8,total:36,paid:4,due:27,bankTotal:44994.33,tag:'UOB'},
-    {id:3,mode:'installment',name:'UOB สินเชื่อ',type:'loan',principal:40000,rate:22,method:'equal',total:48,paid:8,due:8,tag:'UOB'},
+    {id:3,mode:'installment',name:'UOB Cash Plus #1',type:'cash',principal:40000,rate:22,method:'equal',total:48,paid:8,due:8,tag:'UOB'},
+    {id:8,mode:'installment',name:'UOB Cash Plus #2',type:'cash',principal:33618.93,rate:21,method:'equal',total:48,paid:6,due:28,tag:'UOB'},
+    {id:9,mode:'installment',name:'UOB Cash Plus #3',type:'cash',principal:80000,rate:23,method:'equal',total:48,paid:3,due:2,tag:'UOB'},
     {id:4,mode:'installment',name:'SCB Deejung ENET',type:'credit',monthly:144.45,total:36,paid:30,due:4,tag:'SCB'},
     {id:5,mode:'installment',name:'SCB Deejung Transfer',type:'credit',monthly:3973.80,total:10,paid:5,due:30,tag:'SCB'},
     {id:6,mode:'installment',name:'Lotus Personal Loan',type:'cash',monthly:530.13,total:48,paid:7,due:31,tag:'Lotus'},
     {id:7,mode:'installment',name:'TTB Flash Cash Chill',type:'loan',principal:32000,rate:24,method:'equal',total:60,paid:24,due:28,tag:'TTB'},
+    {id:10,mode:'installment',name:'K Express Smart Cash #1',type:'cash',monthly:896.49,total:36,paid:7,due:3,tag:'KBank'},
+    {id:11,mode:'installment',name:'K Express Smart Cash #2',type:'cash',monthly:1169.33,total:36,paid:35,due:3,tag:'KBank'},
+    {id:12,mode:'installment',name:'กองทุนเพ็ญภาค',type:'loan',principal:90000,monthly:8400,total:12,paid:0,due:5,tag:'กองทุน'},
+    {id:13,mode:'subscription',name:'Netflix',type:'other',amount:419,due:15,tag:'บริการ'},
+    {id:14,mode:'subscription',name:'YouTube Premium',type:'other',amount:179,due:20,tag:'บริการ'},
+    {id:15,mode:'subscription',name:'เน็ตบ้าน',type:'other',amount:599,due:1,tag:'บริการ'},
   ]};
   save(); toast('โหลดรายการหนี้ของคุณแล้ว 📥'); go('home');
 }
