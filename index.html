@@ -536,7 +536,7 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       </div>
 
       <div class="card">
-        <div class="row-set" onclick="seedDemo()"><div class="ic">🎁</div><div class="tx"><div class="a">โหลดข้อมูลตัวอย่าง</div><div class="b">ลองเล่นดูฟีเจอร์ทั้งหมด</div></div><span style="color:var(--ink-faint);">›</span></div>
+        <div class="row-set" onclick="seedDemo()"><div class="ic">📥</div><div class="tx"><div class="a">โหลดรายการหนี้ของฉัน</div><div class="b">บัตร/สินเชื่อจริง 7 รายการ (UOB·SCB·Lotus·TTB)</div></div><span style="color:var(--ink-faint);">›</span></div>
         <div class="row-set" onclick="resetAll()"><div class="ic">🗑️</div><div class="tx"><div class="a">ล้างข้อมูลทั้งหมด</div><div class="b">เริ่มต้นใหม่</div></div><span style="color:var(--ink-faint);">›</span></div>
       </div>
       <div style="text-align:center;color:var(--ink-faint);font-size:12px;font-weight:600;padding:8px 0 4px;">
@@ -677,7 +677,7 @@ function load(){
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush();}
 
-const baht = n => '฿'+Math.round(n).toLocaleString('th-TH');
+const baht = n => { const r=Math.round((+n||0)*100)/100; return '฿'+r.toLocaleString('th-TH',{minimumFractionDigits:r%1?2:0,maximumFractionDigits:2}); };
 const bahtK = n => n>=1000 ? '฿'+(n/1000).toFixed(n%1000?1:0)+'k' : '฿'+Math.round(n);
 
 /* ---------- date helpers ---------- */
@@ -1388,12 +1388,15 @@ function saveIncome(){
 }
 function seedDemo(){
   state={income:30000,notif:state.notif||{enabled:false},notifLog:{},bills:[
-    {id:1,mode:'installment',name:'iPhone 15 ผ่อน 0%',type:'credit',principal:32000,rate:0,method:'equal',total:10,paid:3,due:25,tag:'ของอยากได้'},
-    {id:2,mode:'installment',name:'สินเชื่อรถ',type:'loan',principal:40000,rate:22,method:'equal',total:48,paid:8,due:8,tag:'จำเป็น'},
-    {id:3,mode:'installment',name:'Click for Cash UOB',type:'cash',principal:97000,rate:16,method:'declining',declinePct:10,total:36,paid:11,due:14,bankTotal:108550.88,tag:'UOB'},
-    {id:5,mode:'revolving',name:'บัตรเครดิต KTC',type:'credit',balance:28000,rate:16,payment:3000,due:20,tag:'หมุนเวียน'},
+    {id:1,mode:'installment',name:'UOB Click for Cash #1',type:'cash',principal:97000,rate:16,method:'declining',declinePct:10,total:36,paid:11,due:14,bankTotal:108550.88,tag:'UOB'},
+    {id:2,mode:'installment',name:'UOB Click for Cash #2',type:'cash',principal:39000,rate:16,method:'declining',declinePct:8,total:36,paid:4,due:27,bankTotal:44994.33,tag:'UOB'},
+    {id:3,mode:'installment',name:'UOB สินเชื่อ',type:'loan',principal:40000,rate:22,method:'equal',total:48,paid:8,due:8,tag:'UOB'},
+    {id:4,mode:'installment',name:'SCB Deejung ENET',type:'credit',monthly:144.45,total:36,paid:30,due:4,tag:'SCB'},
+    {id:5,mode:'installment',name:'SCB Deejung Transfer',type:'credit',monthly:3973.80,total:10,paid:5,due:30,tag:'SCB'},
+    {id:6,mode:'installment',name:'Lotus Personal Loan',type:'cash',monthly:530.13,total:48,paid:7,due:31,tag:'Lotus'},
+    {id:7,mode:'installment',name:'TTB Flash Cash Chill',type:'loan',principal:32000,rate:24,method:'equal',total:60,paid:24,due:28,tag:'TTB'},
   ]};
-  save(); toast('โหลดข้อมูลตัวอย่างแล้ว 🎁'); go('home');
+  save(); toast('โหลดรายการหนี้ของคุณแล้ว 📥'); go('home');
 }
 function resetAll(){
   if(confirm('ล้างข้อมูลทั้งหมด เริ่มต้นใหม่?')){
