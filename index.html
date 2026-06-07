@@ -435,9 +435,13 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
         <div class="stat"><div class="ic">🪙</div><div class="v" id="sLeft">฿0</div><div class="k">เหลือใช้</div></div>
       </div>
 
+      <div id="progressCard"></div>
       <div id="trendCard"></div>
+      <div id="donutCard"></div>
       <div id="summaryCard"></div>
+      <div id="streakCard"></div>
       <div id="payoffCta"></div>
+      <div id="refiCta"></div>
 
       <div class="sec-head"><h3>📅 ใกล้ครบกำหนด</h3><a onclick="go('reminders')">ดูทั้งหมด</a></div>
       <div id="homeDue"></div>
@@ -469,6 +473,32 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       </div>
       <button class="btn" onclick="runPayoff()">✨ คำนวณแผน</button>
       <div id="payoffResult" style="margin-top:18px;"></div>
+    </section>
+
+    <!-- ============ REFINANCE ============ -->
+    <section class="screen" id="screen-refi">
+      <button class="back-btn" onclick="go('home')">← กลับ</button>
+      <div class="page-title" style="margin:2px 2px 4px;">🔄 รวมหนี้ / รีไฟแนนซ์</div>
+      <div class="page-sub">ถ้าเอาหนี้ทั้งหมดมารวมเป็นก้อนเดียวดอกถูกลง จะคุ้มไหม?</div>
+      <div class="card pop">
+        <div style="display:flex;gap:12px;">
+          <div class="field" style="flex:1;"><label>ดอกเบี้ยใหม่ %/ปี</label>
+            <div class="with-unit"><input class="inp" id="rRate" type="number" inputmode="decimal" placeholder="15"/><span class="u">%</span></div></div>
+          <div class="field" style="flex:1;"><label>ผ่อนกี่งวด</label>
+            <div class="with-unit"><input class="inp" id="rMonths" type="number" inputmode="numeric" placeholder="48"/><span class="u">งวด</span></div></div>
+        </div>
+        <div id="refiCurrent" style="font-size:12px;color:var(--ink-soft);font-weight:600;margin:0 4px;"></div>
+      </div>
+      <button class="btn" onclick="runRefi()">✨ คำนวณดูเลย</button>
+      <div id="refiResult" style="margin-top:18px;"></div>
+    </section>
+
+    <!-- ============ PAYMENT HISTORY ============ -->
+    <section class="screen" id="screen-history">
+      <button class="back-btn" onclick="go('home')">← กลับ</button>
+      <div class="page-title" style="margin:2px 2px 4px;">🔥 ประวัติการจ่าย</div>
+      <div class="page-sub">ทุกครั้งที่กดจ่าย น้องออมจะจดไว้ให้น้า~</div>
+      <div id="historyWrap"></div>
     </section>
 
     <!-- ============ LIST ============ -->
@@ -711,6 +741,7 @@ function load(){
   if(!s||!Array.isArray(s.bills)) s={income:30000, bills:[]};
   if(!s.notif) s.notif={enabled:false};
   if(!s.notifLog) s.notifLog={};
+  if(!Array.isArray(s.payments)) s.payments=[];
   return s;
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush(); pushCloud();}
@@ -870,6 +901,10 @@ function render(){
   document.getElementById('trendCard').innerHTML = trendCardHTML();
   document.getElementById('summaryCard').innerHTML = summaryHTML();
   document.getElementById('payoffCta').innerHTML = payoffCtaHTML();
+  document.getElementById('progressCard').innerHTML = progressCardHTML();
+  document.getElementById('donutCard').innerHTML = donutCardHTML();
+  document.getElementById('streakCard').innerHTML = streakCardHTML();
+  document.getElementById('refiCta').innerHTML = refiCtaHTML();
 
   buildChips();
   renderList();
@@ -1031,6 +1066,176 @@ function runPayoff(){
       ${timeline||emptyMini('—')}
     </div>`;
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* =====================================================================
+   🎯 DEBT FREEDOM PROGRESS + interest paid to date
+   ===================================================================== */
+function debtProgress(){
+  let totalCommit=0, remaining=0, interestPaid=0;
+  state.bills.forEach(b=>{
+    if(b.mode==='subscription'||b.mode==='revolving') return;
+    const rem=billRemaining(b), it=billInterest(b);
+    let commit;
+    if(+b.bankTotal>0) commit=+b.bankTotal;
+    else if(hasSchedule(b)) commit=(+b.principal||0)+(isFinite(it)?it:0);
+    else commit=(+b.monthly||0)*(+b.total||0);
+    totalCommit+=commit; remaining+=rem;
+    if(hasSchedule(b)){ const rows=buildSchedule(b), paid=+b.paid||0; interestPaid+=rows.slice(0,paid).reduce((s,r)=>s+r.interest,0); }
+    else { const tot=+b.total||1, paid=+b.paid||0; if(isFinite(it)&&it>0) interestPaid+=it*Math.min(1,paid/tot); }
+  });
+  const paid=Math.max(0,totalCommit-remaining);
+  return {pct: totalCommit>0?Math.round(paid/totalCommit*100):0, paid, remaining, interestPaid};
+}
+function progressCardHTML(){
+  const has=state.bills.some(b=>b.mode!=='subscription'&&b.mode!=='revolving'&&billActive(b));
+  if(!has) return '';
+  const p=debtProgress();
+  return `<div class="card">
+    <div class="sec-head" style="margin:0 0 10px;"><h3>🎯 ความคืบหน้าปลดหนี้</h3><span style="font-family:'Itim';font-size:22px;color:var(--mint-deep);">${p.pct}%</span></div>
+    <div class="bar" style="height:14px;border-radius:10px;"><i style="width:${p.pct}%"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:11.5px;color:var(--ink-soft);font-weight:600;">
+      <span>จ่ายไปแล้ว ${baht(p.paid)}</span><span>เหลือ ${baht(p.remaining)}</span></div>
+    <div style="margin:14px 0 0;background:#FFF4ED;border-radius:var(--r-md);padding:13px 15px;display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">💸 จ่ายดอกเบี้ยไปแล้วทั้งหมด</div>
+        <div style="font-family:'Itim';font-size:23px;color:#E89B5C;line-height:1.1;">${baht(p.interestPaid)}</div></div>
+      <div style="font-size:30px;">😮</div></div>
+  </div>`;
+}
+
+/* =====================================================================
+   🍩 DONUT (income allocation / debt by bank)
+   ===================================================================== */
+const DONUT_COLORS=['#7BD8A8','#AED2FF','#C9B6FF','#FFC9A8','#FFD66B','#FF9FB6','#9FE0C4','#9B7BE0'];
+function donutSVG(segs){
+  const total=segs.reduce((s,x)=>s+x.value,0)||1, R=46, C=2*Math.PI*R, cx=60, cy=60, sw=18;
+  let acc=0;
+  const arcs=segs.filter(s=>s.value>0).map(s=>{
+    const frac=s.value/total, len=frac*C, off=-acc*C; acc+=frac;
+    return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${s.color}" stroke-width="${sw}" stroke-linecap="butt" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 120 120" width="116" height="116" style="flex:none;">${arcs}</svg>`;
+}
+let donutView='income';
+function donutCardHTML(){
+  const debtM=state.bills.filter(b=>isDebt(b)&&billActive(b)).reduce((s,b)=>s+billMonthly(b),0);
+  const subM=state.bills.filter(b=>b.mode==='subscription').reduce((s,b)=>s+(+b.amount||0),0);
+  if(debtM+subM<=0) return '';
+  let segs;
+  if(donutView==='income'){
+    const left=Math.max(0,state.income-debtM-subM);
+    segs=[{label:'หนี้',value:debtM,color:'#FF8B94'},{label:'ค่าบริการ',value:subM,color:'#9B7BE0'},{label:'เหลือใช้',value:left,color:'#7BD8A8'}];
+  }else{
+    const byTag={};
+    state.bills.filter(b=>isDebt(b)&&billActive(b)).forEach(b=>{ const t=b.tag||'อื่นๆ'; byTag[t]=(byTag[t]||0)+billRemaining(b); });
+    segs=Object.entries(byTag).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({label:k,value:v,color:DONUT_COLORS[i%DONUT_COLORS.length]}));
+  }
+  const total=segs.reduce((s,x)=>s+x.value,0)||1;
+  const legend=segs.filter(s=>s.value>0).map(s=>`<div style="display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;margin-bottom:6px;">
+    <span style="width:11px;height:11px;border-radius:3px;background:${s.color};flex:none;"></span>
+    <span style="flex:1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.label)}</span>
+    <span style="color:var(--ink-soft);flex:none;">${Math.round(s.value/total*100)}%</span></div>`).join('');
+  return `<div class="card">
+    <div class="chips" style="padding-bottom:12px;">
+      <div class="chip ${donutView==='income'?'on':''}" onclick="donutView='income';render();">💰 รายได้แบ่งไปไหน</div>
+      <div class="chip ${donutView==='bank'?'on':''}" onclick="donutView='bank';render();">🏦 หนี้แต่ละก้อน</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">${donutSVG(segs)}<div style="flex:1;min-width:0;">${legend}</div></div>
+  </div>`;
+}
+
+/* =====================================================================
+   🔄 REFINANCE / CONSOLIDATION
+   ===================================================================== */
+function refiTargets(){ return state.bills.filter(b=>isDebt(b)&&billActive(b)); }
+function refiCurrent(){
+  const ds=refiTargets(); let principal=0, remainInterest=0, monthly=0;
+  ds.forEach(b=>{
+    monthly+=billMonthly(b);
+    const rem=billRemaining(b);
+    let pr;
+    if(b.mode==='revolving') pr=+b.balance||0;
+    else if(hasSchedule(b)){ const rows=buildSchedule(b), paid=+b.paid||0; pr=paid>0?rows[paid-1].balance:(+b.principal||0); }
+    else pr=rem;
+    principal+=pr; remainInterest+=Math.max(0,rem-pr);
+  });
+  return {principal, remainInterest, monthly, count:ds.length};
+}
+function refiCtaHTML(){
+  if(refiTargets().length<2) return '';
+  return `<div class="card" onclick="go('refi')" style="display:flex;align-items:center;gap:13px;cursor:pointer;">
+    <div style="font-size:30px;">🔄</div>
+    <div style="flex:1;"><div style="font-family:'Itim';font-size:18px;">ลองรวมหนี้ / รีไฟแนนซ์</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">หนี้ดอกแพงหลายก้อน? ดูว่ารวมเป็นก้อนเดียวคุ้มไหม</div></div>
+    <span style="color:var(--ink-faint);font-size:20px;">›</span></div>`;
+}
+function runRefi(){
+  const rate=+document.getElementById('rRate').value||0, n=+document.getElementById('rMonths').value||0;
+  const cur=refiCurrent(), el=document.getElementById('refiResult');
+  if(!cur.principal||!n){ toast('กรอกดอกเบี้ยและจำนวนงวดก่อนน้า~'); return; }
+  const r=rate/100/12;
+  const newMonthly = r>0 ? cur.principal*r/(1-Math.pow(1+r,-n)) : cur.principal/n;
+  const newInterest = newMonthly*n - cur.principal;
+  const saveInterest = cur.remainInterest - newInterest;
+  const worth = saveInterest>0;
+  el.innerHTML=`
+    <div class="verdict ${worth?'go':'care'}" style="padding:20px;">
+      <div class="big">${worth?'✅ คุ้ม! รวมหนี้ดีกว่า':'🤔 อาจไม่คุ้มเท่าไหร่'}</div>
+      <div class="why">${worth
+        ? `รวม ${cur.count} ก้อน (${baht(cur.principal)}) เป็นก้อนเดียวดอก ${rate}% → ประหยัดดอกเบี้ย ${baht(saveInterest)} น้า~`
+        : `ดอก ${rate}% ไม่ได้ช่วยลดดอกที่เหลือมากนัก ลองหาดอกถูกกว่านี้ดูนะ`}</div>
+    </div>
+    <div class="compare">
+      <div class="col"><div class="t">ผ่อนเดิมรวม</div><div class="n" style="font-size:21px;color:var(--danger)">${bahtK(cur.monthly)}</div><div class="d">/เดือน</div></div>
+      <div class="arr">➜</div>
+      <div class="col"><div class="t">ผ่อนใหม่</div><div class="n" style="font-size:21px;color:var(--mint-deep)">${bahtK(newMonthly)}</div><div class="d">/เดือน</div></div>
+    </div>
+    <div class="kv">
+      <div class="cell"><div class="k">ดอกที่เหลือ (เดิม)</div><div class="v" style="color:var(--danger)">${baht(cur.remainInterest)}</div></div>
+      <div class="cell"><div class="k">ดอกก้อนใหม่</div><div class="v" style="color:${worth?'var(--mint-deep)':'var(--danger)'}">${baht(Math.max(0,newInterest))}</div></div>
+    </div>
+    <div class="card" style="text-align:center;font-size:11.5px;color:var(--ink-faint);font-weight:600;">ประมาณการเท่านั้น · สอบถามเงื่อนไขจริงกับธนาคารก่อนตัดสินใจน้า</div>`;
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* =====================================================================
+   🔥 PAYMENT HISTORY + ON-TIME STREAK
+   ===================================================================== */
+function recordPayment(b, amount){
+  if(!state.payments) state.payments=[];
+  const now=new Date(), onTime=now.getDate()<=(+b.due||31);
+  state.payments.unshift({name:b.name, amount:Math.round(amount), y:now.getFullYear(), m:now.getMonth(), d:now.getDate(), onTime});
+  if(state.payments.length>200) state.payments.length=200;
+}
+function paymentStreak(){
+  const ps=state.payments||[]; if(!ps.length) return 0;
+  const months=new Set(ps.map(p=>p.y*12+p.m));
+  const now=new Date(); let cur=now.getFullYear()*12+now.getMonth(), streak=0;
+  if(!months.has(cur)) cur-=1;
+  while(months.has(cur)){ streak++; cur-=1; }
+  return streak;
+}
+function streakCardHTML(){
+  const ps=state.payments||[]; if(!ps.length) return '';
+  const recent=ps.slice(0,6);
+  return `<div class="card" onclick="go('history')" style="cursor:pointer;">
+    <div class="sec-head" style="margin:0 0 8px;"><h3>🔥 จ่ายตรงเวลา</h3><span style="font-size:12.5px;color:var(--mint-deep);font-weight:700;">ดูประวัติ ›</span></div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-family:'Itim';font-size:36px;color:#E89B5C;line-height:1;">${paymentStreak()}<span style="font-size:15px;color:var(--ink-soft);"> เดือนติด</span></div>
+      <div style="flex:1;text-align:right;font-size:21px;letter-spacing:2px;">${recent.map(p=>p.onTime?'✅':'⚠️').join('')}</div>
+    </div></div>`;
+}
+function renderHistory(){
+  const ps=state.payments||[], wrap=document.getElementById('historyWrap');
+  if(!ps.length){ wrap.innerHTML=emptyFull('ยังไม่มีประวัติการจ่าย','กดปุ่ม "จ่ายงวดนี้แล้ว" ในรายการ น้องออมจะเริ่มจดให้น้า~'); return; }
+  const total=ps.reduce((s,p)=>s+p.amount,0);
+  wrap.innerHTML=`<div class="card" style="display:flex;justify-content:space-between;">
+    <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">🔥 จ่ายตรงเวลาติดกัน</div><div style="font-family:'Itim';font-size:26px;color:#E89B5C;">${paymentStreak()} เดือน</div></div>
+    <div style="text-align:right;"><div style="font-size:12px;color:var(--ink-soft);font-weight:700;">จ่ายไปทั้งหมด</div><div style="font-family:'Itim';font-size:26px;color:var(--mint-deep);">${baht(total)}</div></div>
+  </div>`+ps.map(p=>`<div class="rem">
+    <div class="day"><div class="d">${p.d}</div><div class="m">${TH_MONTH[p.m]}</div></div>
+    <div class="info"><div class="n">${esc(p.name)}</div><div class="s" style="color:${p.onTime?'var(--mint-deep)':'var(--danger)'}">${p.onTime?'✅ จ่ายตรงเวลา':'⚠️ จ่ายช้า'}</div></div>
+    <div class="amt2">${baht(p.amount)}</div></div>`).join('');
 }
 
 /* =====================================================================
@@ -1541,6 +1746,7 @@ function payInstallment(id){
     const interest=bal*((+b.rate||0)/100/12), principalPaid=(+b.payment||0)-interest;
     if(principalPaid<=0){ toast('ยอดจ่ายยังน้อยกว่าดอกเบี้ย ยอดไม่ลดน้า 🥺'); return; }
     b.balance=Math.max(0,bal-principalPaid);
+    recordPayment(b, +b.payment||0);
     save();
     if(b.balance<=0){ toast('ปิดยอดบัตรนี้ได้แล้ว เก่งมาก! 🎉'); }
     else { toast('ตัดยอดแล้ว เหลือ '+baht(b.balance)+' ✅'); }
@@ -1548,7 +1754,9 @@ function payInstallment(id){
   }
   const tot=+b.total||0, paid=+b.paid||0;
   if(paid>=tot)return;
+  const payAmt=billMonthly(b);
   b.paid=paid+1;
+  recordPayment(b, payAmt);
   save(); // re-renders everything incl. this detail screen
   if(b.paid>=tot){ toast('ผ่อนครบแล้ว เก่งมาก! 🎉'); }
   else { toast('บันทึกการจ่ายงวดที่ '+b.paid+' แล้ว ✅'); }
@@ -1588,6 +1796,8 @@ function seedDemo(){
     {id:14,mode:'subscription',name:'YouTube Premium',type:'other',amount:179,due:20,tag:'บริการ'},
     {id:15,mode:'subscription',name:'เน็ตบ้าน',type:'other',amount:599,due:1,tag:'บริการ'},
   ]};
+  const nd=new Date(), mk=(name,amt,ago,day,ot)=>{const d=new Date(nd.getFullYear(),nd.getMonth()-ago,day);return {name,amount:amt,y:d.getFullYear(),m:d.getMonth(),d:day,onTime:ot};};
+  state.payments=[mk('SCB Deejung Transfer',3974,0,5,true),mk('UOB Cash Plus #1',1260,0,8,true),mk('TTB Flash Cash Chill',921,1,28,true),mk('Lotus Personal Loan',530,1,31,false),mk('UOB Click for Cash #1',3450,2,14,true)];
   save(); toast('โหลดรายการหนี้ของคุณแล้ว 📥'); go('home');
 }
 function resetAll(){
@@ -1829,6 +2039,8 @@ function go(s){
   document.querySelectorAll('.nav [data-nav]').forEach(b=>b.classList.toggle('on',b.dataset.nav===s));
   document.getElementById('scroll').scrollTop=0;
   if(s==='settings'){ document.getElementById('setIncome').value=state.income; updateNotifUI(); }
+  if(s==='refi'){ const c=refiCurrent(); document.getElementById('refiCurrent').textContent = c.count?`รวมหนี้ตอนนี้ ${c.count} ก้อน · ยอด ${baht(c.principal)} · ผ่อนเดิม ${baht(c.monthly)}/เดือน`:''; document.getElementById('refiResult').innerHTML=''; }
+  if(s==='history') renderHistory();
 }
 
 let toastT;
