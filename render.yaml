@@ -18,3 +18,7 @@ services:
         sync: false        # เช่น mailto:you@email.com
       - key: APP_PASSWORD
         sync: false        # รหัสผ่านเข้าแอพ (เว้นว่าง = ไม่ล็อก)
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false        # ซิงค์คลาวด์ (เว้นว่าง = เก็บในเครื่อง)
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false        # token ของ Upstash Redis

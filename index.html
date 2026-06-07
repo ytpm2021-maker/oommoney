@@ -530,6 +530,7 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       </div>
 
       <div class="card">
+        <div class="row-set"><div class="ic">☁️</div><div class="tx"><div class="a">ซิงค์คลาวด์</div><div class="b" id="cloudState">กำลังตรวจสอบ…</div></div></div>
         <div class="row-set" onclick="exportData()"><div class="ic">📤</div><div class="tx"><div class="a">ส่งออก / สำรองข้อมูล</div><div class="b">ดาวน์โหลดเป็นไฟล์ .json</div></div><span style="color:var(--ink-faint);">›</span></div>
         <div class="row-set" onclick="document.getElementById('importFile').click()"><div class="ic">📥</div><div class="tx"><div class="a">นำเข้าข้อมูล</div><div class="b">กู้คืนจากไฟล์ที่สำรองไว้</div></div><span style="color:var(--ink-faint);">›</span></div>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(this)" />
@@ -684,7 +685,7 @@ function load(){
   if(!s.notifLog) s.notifLog={};
   return s;
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush();}
+function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush(); pushCloud();}
 
 const baht = n => { const r=Math.round((+n||0)*100)/100; return '฿'+r.toLocaleString('th-TH',{minimumFractionDigits:r%1?2:0,maximumFractionDigits:2}); };
 const bahtK = n => n>=1000 ? '฿'+(n/1000).toFixed(n%1000?1:0)+'k' : '฿'+Math.round(n);
@@ -1629,6 +1630,59 @@ async function unsubscribePush(){
 }
 
 /* =====================================================================
+   CLOUD SYNC (optional — Upstash Redis via the push server)
+   ===================================================================== */
+let cloudOn=false, cloudT=null, lastSaveAt=0;
+async function initCloud(){
+  try{
+    const r=await fetch('api/state',{cache:'no-store'});
+    if(!r.ok){ setCloudUI(false); return; }   // no backend (plain static host)
+    const j=await r.json();
+    if(!j.cloud){ setCloudUI(false); return; }
+    cloudOn=true;
+    if(j.state && Array.isArray(j.state.bills)){
+      const s=j.state;                          // cloud = source of truth
+      if(!s.notif) s.notif={enabled:false};
+      if(!s.notifLog) s.notifLog={};
+      state=s; localStorage.setItem(KEY,JSON.stringify(state)); render();
+    }else{
+      pushCloudNow();                           // cloud empty → upload this device's data
+    }
+    setCloudUI(true);
+  }catch(e){ setCloudUI(false); }
+}
+function pushCloud(){
+  if(!cloudOn) return;
+  clearTimeout(cloudT);
+  cloudT=setTimeout(pushCloudNow, 900);         // debounce rapid saves
+}
+function pushCloudNow(){
+  lastSaveAt=Date.now();
+  fetch('api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}).catch(()=>{});
+}
+/* pull latest from cloud (e.g. when switching back to the app on another device) */
+async function pullCloud(){
+  if(!cloudOn || Date.now()-lastSaveAt < 3000) return;   // skip right after a local save (avoid revert)
+  try{
+    const r=await fetch('api/state',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json();
+    if(j.cloud && j.state && Array.isArray(j.state.bills)){
+      const incoming=JSON.stringify(j.state), current=JSON.stringify(state);
+      if(incoming!==current){
+        const s=j.state; if(!s.notif)s.notif={enabled:false}; if(!s.notifLog)s.notifLog={};
+        state=s; localStorage.setItem(KEY,JSON.stringify(state)); render();
+        toast('ซิงค์ข้อมูลล่าสุดแล้ว ☁️');
+      }
+    }
+  }catch(e){}
+}
+function setCloudUI(on){
+  const el=document.getElementById('cloudState'); if(!el) return;
+  el.textContent = on ? 'เปิดอยู่ · ข้อมูลซิงค์ทุกเครื่อง ☁️' : 'ปิด · เก็บในเครื่องนี้เท่านั้น';
+  el.style.color = on ? 'var(--mint-deep)' : 'var(--ink-soft)';
+}
+
+/* =====================================================================
    EXPORT / IMPORT (backup)
    ===================================================================== */
 function exportData(){
@@ -1683,9 +1737,11 @@ document.getElementById('chips').addEventListener('click',e=>{
 render();
 updateNotifUI();
 checkDueNotifications();
+initCloud();
 
 // re-check reminders whenever the app returns to the foreground
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkDueNotifications(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkDueNotifications(); pullCloud(); } });
+window.addEventListener('focus',pullCloud);
 
 /* service worker */
 if('serviceWorker' in navigator){

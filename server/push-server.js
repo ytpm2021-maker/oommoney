@@ -121,8 +121,24 @@ if (fs.existsSync(SUBS_FILE)) {
 }
 const persist = () => fs.writeFileSync(SUBS_FILE, JSON.stringify(store, null, 2));
 
+// ---- cloud data store (Upstash Redis REST — enable via env vars) ----
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const CLOUD = !!(UPSTASH_URL && UPSTASH_TOKEN);
+const STATE_KEY = 'oommoney:state';
+if (CLOUD) console.log('☁️  Cloud sync ENABLED (Upstash Redis)'); else console.log('💾 Cloud sync off — using device storage only');
+async function redis(cmd) {
+  const r = await fetch(UPSTASH_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmd)
+  });
+  if (!r.ok) throw new Error('redis ' + r.status);
+  return (await r.json()).result;
+}
+
 // ---- middleware ----
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 // login endpoint: correct password -> set a 30-day cookie
 app.post('/login', (req, res) => {
@@ -153,6 +169,23 @@ app.use(express.static(ROOT, { extensions: ['html'] }));
 
 // ---- API ----
 app.get('/api/vapidPublicKey', (req, res) => res.json({ publicKey: vapid.publicKey }));
+
+// cloud sync: load / save the whole app state (password-gated by the middleware above)
+app.get('/api/cloud', (req, res) => res.json({ cloud: CLOUD }));
+app.get('/api/state', async (req, res) => {
+  if (!CLOUD) return res.json({ cloud: false, state: null });
+  try {
+    const v = await redis(['GET', STATE_KEY]);
+    res.json({ cloud: true, state: v ? JSON.parse(v) : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/state', async (req, res) => {
+  if (!CLOUD) return res.json({ cloud: false });
+  try {
+    await redis(['SET', STATE_KEY, JSON.stringify(req.body || {})]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.post('/api/subscribe', (req, res) => {
   const { subscription, reminders } = req.body || {};
