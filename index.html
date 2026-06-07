@@ -263,6 +263,10 @@ input,select{font-family:inherit;}
 .compare .col .n{font-family:'Itim';font-size:30px;margin-top:4px;}
 .compare .col .d{font-size:11px;color:var(--ink-soft);font-weight:600;}
 .compare .arr{align-self:center;font-size:22px;color:var(--ink-faint);}
+.tl-row{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid var(--line);}
+.tl-row:last-child{border-bottom:none;}
+.tl-when{min-width:78px;font-family:'Itim';font-size:14px;color:var(--sky-deep);flex:none;}
+.tl-name{font-weight:700;font-size:14px;}
 
 .rem{display:flex;align-items:center;gap:13px;background:var(--card);border-radius:var(--r-lg);padding:15px;
   box-shadow:var(--sh-1);margin-bottom:12px;}
@@ -433,6 +437,7 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
 
       <div id="trendCard"></div>
       <div id="summaryCard"></div>
+      <div id="payoffCta"></div>
 
       <div class="sec-head"><h3>📅 ใกล้ครบกำหนด</h3><a onclick="go('reminders')">ดูทั้งหมด</a></div>
       <div id="homeDue"></div>
@@ -441,6 +446,29 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
     <!-- ============ DETAIL ============ -->
     <section class="screen" id="screen-detail">
       <div id="detailWrap"></div>
+    </section>
+
+    <!-- ============ PAYOFF PLAN ============ -->
+    <section class="screen" id="screen-payoff">
+      <button class="back-btn" onclick="go('home')">← กลับ</button>
+      <div class="page-title" style="margin:2px 2px 4px;">💪 แผนปิดหนี้</div>
+      <div class="page-sub">โปะเพิ่มเดือนละเท่าไหร่ ปลอดหนี้เร็วขึ้นแค่ไหน?</div>
+      <div class="card pop">
+        <div class="field">
+          <label>โปะเพิ่มได้เดือนละ <span style="color:var(--ink-faint);font-weight:500;">(นอกจากยอดผ่อนปกติ)</span></label>
+          <div class="with-unit"><input class="inp" id="pExtra" type="number" inputmode="numeric" placeholder="2000"/><span class="u">฿</span></div>
+        </div>
+        <div class="field" style="margin-bottom:4px;">
+          <label>กลยุทธ์</label>
+          <div class="seg-row" id="pStrategy">
+            <div class="seg-opt on" data-v="avalanche" style="min-width:auto;font-size:12px;padding:12px 6px;">🔥 ลดดอกแพงก่อน</div>
+            <div class="seg-opt" data-v="snowball" style="min-width:auto;font-size:12px;padding:12px 6px;">⛄ ปิดก้อนเล็กก่อน</div>
+          </div>
+          <div style="font-size:11px;color:var(--ink-faint);font-weight:600;margin:7px 4px 0;" id="pStrategyHint">ลดดอกแพงก่อน = ประหยัดดอกเบี้ยมากที่สุด</div>
+        </div>
+      </div>
+      <button class="btn" onclick="runPayoff()">✨ คำนวณแผน</button>
+      <div id="payoffResult" style="margin-top:18px;"></div>
     </section>
 
     <!-- ============ LIST ============ -->
@@ -841,6 +869,7 @@ function render(){
 
   document.getElementById('trendCard').innerHTML = trendCardHTML();
   document.getElementById('summaryCard').innerHTML = summaryHTML();
+  document.getElementById('payoffCta').innerHTML = payoffCtaHTML();
 
   buildChips();
   renderList();
@@ -927,6 +956,81 @@ function summaryHTML(){
       <div class="cell"><div class="k">ปลอดหนี้ภายใน</div><div class="v">${endLabel}</div></div>
     </div>
   </div>`;
+}
+
+/* =====================================================================
+   PAYOFF PLAN (snowball / avalanche simulator)
+   ===================================================================== */
+function payoffCtaHTML(){
+  const debts=state.bills.filter(b=>isDebt(b)&&billActive(b));
+  if(!debts.length) return '';
+  return `<div class="card" onclick="go('payoff')" style="display:flex;align-items:center;gap:13px;cursor:pointer;">
+    <div style="font-size:30px;">💪</div>
+    <div style="flex:1;"><div style="font-family:'Itim';font-size:18px;">วางแผนปิดหนี้</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">โปะเพิ่ม → ดูว่าปลอดหนี้เมื่อไหร่ ประหยัดดอกเท่าไหร่</div></div>
+    <span style="color:var(--ink-faint);font-size:20px;">›</span>
+  </div>`;
+}
+function payoffDebts(){
+  return state.bills.filter(b=>isDebt(b)&&billActive(b)).map(b=>{
+    let bal, rate, min=billMonthly(b);
+    if(b.mode==='revolving'){ bal=+b.balance||0; rate=(+b.rate||0)/100/12; }
+    else if(hasSchedule(b)){ const rows=buildSchedule(b), paid=+b.paid||0; bal=paid>0?rows[paid-1].balance:(+b.principal||0); rate=(+b.rate||0)/100/12; }
+    else { const rem=(+b.total||0)-(+b.paid||0); bal=rem*min; rate=0; }
+    return {name:b.name, bal:Math.max(0,bal), rate:Math.max(0,rate), min:Math.max(0,min)};
+  }).filter(d=>d.bal>0.5 && d.min>0);
+}
+function simulatePayoff(src, extra, strategy, roll){
+  const ds=src.map(d=>({...d, closedMonth:null}));
+  const totalMin=ds.reduce((s,d)=>s+d.min,0);
+  let month=0, totalInterest=0;
+  while(ds.some(d=>d.bal>0.5) && month<600){
+    month++;
+    ds.forEach(d=>{ if(d.bal>0){ const i=d.bal*d.rate; d.bal+=i; totalInterest+=i; }});
+    // budget: roll = keep paying the same total every month; no-roll = only open debts' minimums
+    let budget=(roll?totalMin:ds.filter(d=>d.bal>0).reduce((s,d)=>s+d.min,0))+extra;
+    ds.forEach(d=>{ if(d.bal>0){ const pay=Math.min(d.min,d.bal); d.bal-=pay; budget-=pay; }});
+    if(budget>0.5){
+      let open=ds.filter(d=>d.bal>0.5);
+      if(strategy==='avalanche') open.sort((a,b)=>b.rate-a.rate||a.bal-b.bal);
+      else open.sort((a,b)=>a.bal-b.bal||b.rate-a.rate);
+      for(let i=0;i<open.length && budget>0.5;i++){ const pay=Math.min(budget,open[i].bal); open[i].bal-=pay; budget-=pay; }
+    }
+    ds.forEach(d=>{ if(d.bal<=0.5 && d.closedMonth===null){ d.bal=0; d.closedMonth=month; }});
+  }
+  return {months:month, totalInterest, closes:ds.map(d=>({name:d.name,month:d.closedMonth}))};
+}
+function runPayoff(){
+  const extra=+document.getElementById('pExtra').value||0;
+  const strategy=document.querySelector('#pStrategy .seg-opt.on').dataset.v;
+  const debts=payoffDebts();
+  const el=document.getElementById('payoffResult');
+  if(!debts.length){ el.innerHTML=emptyMini('ไม่มีหนี้ที่ต้องวางแผนแล้ว เก่งมาก! 🎉'); return; }
+  const base=simulatePayoff(debts,0,strategy,false);   // pay minimums only, no reallocation
+  const plan=simulatePayoff(debts,extra,strategy,true); // roll freed payments + extra at targets
+  const fasterM=Math.max(0,base.months-plan.months);
+  const saveI=Math.max(0,base.totalInterest-plan.totalInterest);
+  const end=new Date(); end.setMonth(end.getMonth()+plan.months);
+  const yrs=Math.floor(plan.months/12), mos=plan.months%12;
+  const dur=(yrs?yrs+' ปี ':'')+(mos||!yrs?mos+' เดือน':'');
+  const closes=plan.closes.filter(c=>c.month!=null).sort((a,b)=>a.month-b.month);
+  const timeline=closes.map(c=>{ const d=new Date(); d.setMonth(d.getMonth()+c.month);
+    return `<div class="tl-row"><div class="tl-when">${TH_MONTH[d.getMonth()]} ${(d.getFullYear()+543)%100}</div><div class="tl-name">✅ ปิด ${esc(c.name)}</div></div>`; }).join('');
+  el.innerHTML=`
+    <div class="verdict go" style="padding:20px;">
+      <div class="mascot" data-mood="happy" style="margin:0 auto 4px;width:64px;height:64px;"><div class="coin"></div><div class="eye l"></div><div class="eye r"></div><div class="blush l"></div><div class="blush r"></div><div class="mouth"></div></div>
+      <div class="big">ปลอดหนี้ใน ${plan.months} เดือน</div>
+      <div class="why">≈ ${dur} · หมดราวๆ ${TH_MONTH[end.getMonth()]} ${(end.getFullYear()+543)%100}</div>
+    </div>
+    ${extra>0?`<div class="compare">
+      <div class="col"><div class="t">เร็วขึ้น</div><div class="n" style="color:var(--mint-deep)">${fasterM}</div><div class="d">เดือน</div></div>
+      <div class="col"><div class="t">ประหยัดดอก</div><div class="n" style="color:#E89B5C;font-size:23px;">${bahtK(saveI)}</div><div class="d">เทียบจ่ายขั้นต่ำ</div></div>
+    </div>`:`<div class="card" style="text-align:center;font-size:13px;font-weight:600;color:var(--ink-soft);">💡 ลองใส่ยอดโปะเพิ่มดู จะเห็นว่าปิดหนี้เร็วขึ้นและประหยัดดอกแค่ไหน</div>`}
+    <div class="card">
+      <div class="sec-head" style="margin:0 0 8px;"><h3>📅 ลำดับการปิดหนี้</h3></div>
+      ${timeline||emptyMini('—')}
+    </div>`;
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 /* =====================================================================
@@ -1202,6 +1306,12 @@ document.getElementById('fMethod').addEventListener('click',e=>{
 });
 document.getElementById('fMode').addEventListener('click',e=>{
   const o=e.target.closest('.seg-opt'); if(!o)return; setMode(o.dataset.v);
+});
+document.getElementById('pStrategy').addEventListener('click',e=>{
+  const o=e.target.closest('.seg-opt'); if(!o)return;
+  document.querySelectorAll('#pStrategy .seg-opt').forEach(x=>x.classList.remove('on')); o.classList.add('on');
+  document.getElementById('pStrategyHint').textContent = o.dataset.v==='avalanche'
+    ? 'ลดดอกแพงก่อน = ประหยัดดอกเบี้ยมากที่สุด' : 'ปิดก้อนเล็กก่อน = ปลดภาระเร็ว เห็นผลไว กำลังใจดี';
 });
 
 function saveBill(){
