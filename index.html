@@ -436,6 +436,7 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       </div>
 
       <div id="progressCard"></div>
+      <div id="fundCard"></div>
       <div id="trendCard"></div>
       <div id="donutCard"></div>
       <div id="summaryCard"></div>
@@ -499,6 +500,14 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
       <div class="page-title" style="margin:2px 2px 4px;">🔥 ประวัติการจ่าย</div>
       <div class="page-sub">ทุกครั้งที่กดจ่าย น้องออมจะจดไว้ให้น้า~</div>
       <div id="historyWrap"></div>
+    </section>
+
+    <!-- ============ EMERGENCY FUND ============ -->
+    <section class="screen" id="screen-savings">
+      <button class="back-btn" onclick="go('home')">← กลับ</button>
+      <div class="page-title" style="margin:2px 2px 4px;">🎯 เงินสำรองฉุกเฉิน</div>
+      <div class="page-sub">กันเงินไว้ยามฉุกเฉิน อุ่นใจ ไม่ต้องก่อหนี้เพิ่ม</div>
+      <div id="savingsWrap"></div>
     </section>
 
     <!-- ============ LIST ============ -->
@@ -742,6 +751,7 @@ function load(){
   if(!s.notif) s.notif={enabled:false};
   if(!s.notifLog) s.notifLog={};
   if(!Array.isArray(s.payments)) s.payments=[];
+  if(!s.fund) s.fund={goal:0,balance:0,monthly:0};
   return s;
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush(); pushCloud();}
@@ -902,6 +912,7 @@ function render(){
   document.getElementById('summaryCard').innerHTML = summaryHTML();
   document.getElementById('payoffCta').innerHTML = payoffCtaHTML();
   document.getElementById('progressCard').innerHTML = progressCardHTML();
+  document.getElementById('fundCard').innerHTML = fundCardHTML();
   document.getElementById('donutCard').innerHTML = donutCardHTML();
   document.getElementById('streakCard').innerHTML = streakCardHTML();
   document.getElementById('refiCta').innerHTML = refiCtaHTML();
@@ -1236,6 +1247,82 @@ function renderHistory(){
     <div class="day"><div class="d">${p.d}</div><div class="m">${TH_MONTH[p.m]}</div></div>
     <div class="info"><div class="n">${esc(p.name)}</div><div class="s" style="color:${p.onTime?'var(--mint-deep)':'var(--danger)'}">${p.onTime?'✅ จ่ายตรงเวลา':'⚠️ จ่ายช้า'}</div></div>
     <div class="amt2">${baht(p.amount)}</div></div>`).join('');
+}
+
+/* =====================================================================
+   🎯 EMERGENCY FUND
+   ===================================================================== */
+function fundCardHTML(){
+  const f=state.fund||{}, goal=+f.goal||0, bal=+f.balance||0;
+  if(!goal && !bal) return `<div class="card" onclick="go('savings')" style="display:flex;align-items:center;gap:13px;cursor:pointer;">
+    <div style="font-size:30px;">🎯</div>
+    <div style="flex:1;"><div style="font-family:'Itim';font-size:18px;">ตั้งเป้าหมายออมเงินฉุกเฉิน</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">กันเงินไว้ยามฉุกเฉิน จะได้ไม่ต้องก่อหนี้เพิ่ม</div></div>
+    <span style="color:var(--ink-faint);font-size:20px;">›</span></div>`;
+  const pct=goal>0?Math.min(100,Math.round(bal/goal*100)):0;
+  return `<div class="card" onclick="go('savings')" style="cursor:pointer;">
+    <div class="sec-head" style="margin:0 0 8px;"><h3>🎯 เงินสำรองฉุกเฉิน</h3><span style="font-family:'Itim';font-size:18px;color:var(--sky-deep);">${pct}%</span></div>
+    <div class="bar" style="height:13px;border-radius:10px;background:var(--sky-soft);"><i style="width:${pct}%;background:linear-gradient(90deg,#AED2FF,#6FA8F0);"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:12px;font-weight:600;">
+      <span style="color:var(--sky-deep);">ออมแล้ว ${baht(bal)}</span><span style="color:var(--ink-soft);">เป้า ${baht(goal)}</span></div>
+  </div>`;
+}
+function fundObj(){ if(!state.fund) state.fund={goal:0,balance:0,monthly:0}; return state.fund; }
+function setGoalQuick(v){ document.getElementById('fGoal').value=Math.round(v); }
+function saveFund(){
+  const f=fundObj();
+  f.goal=+document.getElementById('fGoal').value||0;
+  f.monthly=+document.getElementById('fMonthlySave').value||0;
+  save(); renderSavings(); toast('บันทึกเป้าหมายแล้ว 🎯');
+}
+function fundDeposit(){
+  const v=Math.round(+prompt('ออมเพิ่มเท่าไหร่? (บาท)')||0); if(v<=0)return;
+  const f=fundObj(); f.balance=(+f.balance||0)+v; save(); renderSavings();
+  toast((f.goal>0&&f.balance>=f.goal)?'ถึงเป้าหมายแล้ว เก่งมาก! 🎉':'ออมเพิ่ม '+baht(v)+' แล้ว 💙');
+}
+function fundWithdraw(){
+  const v=Math.round(+prompt('ถอนใช้เท่าไหร่? (บาท)')||0); if(v<=0)return;
+  const f=fundObj(); f.balance=Math.max(0,(+f.balance||0)-v); save(); renderSavings(); toast('ถอนแล้ว '+baht(v));
+}
+function renderSavings(){
+  const f=fundObj(), goal=+f.goal||0, bal=+f.balance||0, monthly=+f.monthly||0;
+  const pct=goal>0?Math.min(100,Math.round(bal/goal*100)):0, left=Math.max(0,goal-bal);
+  const months=(monthly>0&&left>0)?Math.ceil(left/monthly):0;
+  const base=Math.max(1000,Math.round(totalMonthly()));
+  const end=new Date(); end.setMonth(end.getMonth()+months);
+  const done=goal>0&&bal>=goal;
+  let coach;
+  if(done) coach='🎉 มีเงินสำรองครบเป้าแล้ว อุ่นใจสุดๆ! ถ้ามีเรื่องด่วนก็ไม่ต้องก่อหนี้เพิ่มแล้วน้า';
+  else if(bal<base) coach=`💡 มีหนี้อยู่เยอะ น้องออมแนะนำให้ออมเงินสำรองสัก 1 เดือน (~${baht(base)}) ก่อน แล้วค่อยเร่งโปะหนี้ จะได้อุ่นใจถ้ามีเรื่องฉุกเฉิน`;
+  else coach='👍 เริ่มมีเงินสำรองแล้ว เยี่ยม! ออมต่อไปเรื่อยๆ ให้ถึงเป้านะ';
+  document.getElementById('savingsWrap').innerHTML=`
+    <div class="health-card" style="padding:22px 20px;">
+      <div class="mascot" data-mood="${done?'happy':'happy'}" style="margin:0 auto 10px;width:64px;height:64px;"><div class="coin"></div><div class="eye l"></div><div class="eye r"></div><div class="blush l"></div><div class="blush r"></div><div class="mouth"></div></div>
+      <div style="font-family:'Itim';font-size:34px;color:var(--sky-deep);line-height:1;">${baht(bal)}</div>
+      <div style="font-size:13px;color:var(--ink-soft);font-weight:600;margin-top:2px;">${goal?('จากเป้าหมาย '+baht(goal)):'ยังไม่ได้ตั้งเป้าหมาย'}</div>
+      ${goal?`<div class="bar" style="height:14px;border-radius:10px;margin:14px 0 6px;background:var(--sky-soft);"><i style="width:${pct}%;background:linear-gradient(90deg,#AED2FF,#6FA8F0);"></i></div>
+      <div style="font-size:12.5px;font-weight:700;color:${done?'var(--mint-deep)':'var(--sky-deep)'};">${done?'ครบเป้าแล้ว 🎉':('ขาดอีก '+baht(left)+' · '+pct+'%')}</div>`:''}
+    </div>
+    <div style="display:flex;gap:11px;">
+      <button class="btn sky" style="flex:1;" onclick="fundDeposit()">💙 ออมเพิ่ม</button>
+      <button class="btn ghost" style="flex:1;" onclick="fundWithdraw()">ถอนใช้</button>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="field"><label>🎯 เป้าหมายเงินสำรอง</label>
+        <div class="with-unit"><input class="inp" id="fGoal" type="number" inputmode="numeric" value="${goal||''}" placeholder="30000"/><span class="u">฿</span></div>
+        <div class="tag-sug">
+          <span class="s" onclick="setGoalQuick(10000)">เริ่มต้น ฿10,000</span>
+          <span class="s" onclick="setGoalQuick(${base*3})">3 เท่ารายจ่าย</span>
+          <span class="s" onclick="setGoalQuick(${base*6})">6 เท่ารายจ่าย</span>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:8px;"><label>ตั้งใจออมเดือนละ</label>
+        <div class="with-unit"><input class="inp" id="fMonthlySave" type="number" inputmode="numeric" value="${monthly||''}" placeholder="2000"/><span class="u">฿</span></div>
+      </div>
+      <button class="btn" onclick="saveFund()">💾 บันทึกเป้าหมาย</button>
+    </div>
+    ${(goal&&monthly&&left>0)?`<div class="card" style="text-align:center;font-size:13px;font-weight:600;color:var(--ink);">⏱️ ออมเดือนละ ${baht(monthly)} → ถึงเป้าใน <b style="color:var(--sky-deep)">${months} เดือน</b> (≈ ${TH_MONTH[end.getMonth()]} ${(end.getFullYear()+543)%100})</div>`:''}
+    <div class="card" style="text-align:center;font-size:13px;font-weight:600;color:var(--ink-soft);line-height:1.6;background:var(--sky-soft);box-shadow:none;">${coach}</div>`;
 }
 
 /* =====================================================================
@@ -1798,6 +1885,7 @@ function seedDemo(){
   ]};
   const nd=new Date(), mk=(name,amt,ago,day,ot)=>{const d=new Date(nd.getFullYear(),nd.getMonth()-ago,day);return {name,amount:amt,y:d.getFullYear(),m:d.getMonth(),d:day,onTime:ot};};
   state.payments=[mk('SCB Deejung Transfer',3974,0,5,true),mk('UOB Cash Plus #1',1260,0,8,true),mk('TTB Flash Cash Chill',921,1,28,true),mk('Lotus Personal Loan',530,1,31,false),mk('UOB Click for Cash #1',3450,2,14,true)];
+  state.fund={goal:30000,balance:8000,monthly:2000};
   save(); toast('โหลดรายการหนี้ของคุณแล้ว 📥'); go('home');
 }
 function resetAll(){
@@ -2041,6 +2129,7 @@ function go(s){
   if(s==='settings'){ document.getElementById('setIncome').value=state.income; updateNotifUI(); }
   if(s==='refi'){ const c=refiCurrent(); document.getElementById('refiCurrent').textContent = c.count?`รวมหนี้ตอนนี้ ${c.count} ก้อน · ยอด ${baht(c.principal)} · ผ่อนเดิม ${baht(c.monthly)}/เดือน`:''; document.getElementById('refiResult').innerHTML=''; }
   if(s==='history') renderHistory();
+  if(s==='savings') renderSavings();
 }
 
 let toastT;
