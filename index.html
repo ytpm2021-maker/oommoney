@@ -584,6 +584,11 @@ table.sched tbody tr:nth-child(even){background:var(--mint-tint);}
           <div class="tx"><div class="a">เปิดการแจ้งเตือน</div><div class="b" id="notifState">เด้งเตือนก่อนครบกำหนด 3 วัน</div></div>
           <div class="tog" id="notifTog" onclick="toggleNotif()"><i></i></div>
         </div>
+        <div class="row-set">
+          <div class="ic">⚡</div>
+          <div class="tx"><div class="a">ตัดรอบชำระอัตโนมัติ</div><div class="b" id="autoPayState">ระบบตัดงวดให้เองทุกวันครบกำหนด ✓</div></div>
+          <div class="tog on" id="autoPayTog" onclick="toggleAutoPay()"><i></i></div>
+        </div>
         <div class="row-set" onclick="testNotif()">
           <div class="ic">📨</div>
           <div class="tx"><div class="a">ทดสอบแจ้งเตือน</div><div class="b">ลองเด้งดูว่าหน้าตาเป็นไง</div></div>
@@ -752,6 +757,7 @@ function load(){
   if(!s.notifLog) s.notifLog={};
   if(!Array.isArray(s.payments)) s.payments=[];
   if(!s.fund) s.fund={goal:0,balance:0,monthly:0};
+  if(s.autoPay===undefined) s.autoPay=true;   // ตัดรอบอัตโนมัติ เปิดโดยปริยาย
   return s;
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(state)); render(); if(state.notif&&state.notif.push) syncPush(); pushCloud();}
@@ -1212,12 +1218,79 @@ function runRefi(){
 /* =====================================================================
    🔥 PAYMENT HISTORY + ON-TIME STREAK
    ===================================================================== */
-function recordPayment(b, amount){
+function recordPayment(b, amount, when){
   if(!state.payments) state.payments=[];
-  const now=new Date(), onTime=now.getDate()<=(+b.due||31);
-  state.payments.unshift({name:b.name, amount:Math.round(amount), y:now.getFullYear(), m:now.getMonth(), d:now.getDate(), onTime});
+  const dt=when||new Date();
+  const onTime = when ? true : (new Date().getDate()<=(+b.due||31));
+  state.payments.unshift({name:b.name, amount:Math.round(amount), y:dt.getFullYear(), m:dt.getMonth(), d:dt.getDate(), onTime, auto:!!when});
   if(state.payments.length>200) state.payments.length=200;
 }
+/* =====================================================================
+   ⚡ AUTO BILLING CYCLE — ตัดรอบชำระเองตามวันครบกำหนด (ไม่ต้องกดจ่าย)
+   ===================================================================== */
+// month-index (y*12+m) ของรอบล่าสุดที่ "เลยวันครบกำหนดไปแล้ว"
+function currentDueIndex(dueDay){
+  const now=new Date(); let y=now.getFullYear(), m=now.getMonth();
+  if(now.getDate() < (+dueDay||1)) m-=1;      // เดือนนี้ยังไม่ถึงกำหนด → รอบล่าสุดคือเดือนก่อน
+  return y*12+m;
+}
+function applyCycle(b, when){
+  if(b.mode==='revolving'){
+    const bal=+b.balance||0; if(bal<=0) return false;
+    const interest=bal*((+b.rate||0)/100/12), principalPaid=(+b.payment||0)-interest;
+    if(principalPaid>0) b.balance=Math.max(0,bal-principalPaid);
+    recordPayment(b, +b.payment||0, when);
+    return true;
+  }
+  const tot=+b.total||0, paid=+b.paid||0;
+  if(paid>=tot) return false;
+  const amt=billMonthly(b);
+  b.paid=paid+1;
+  recordPayment(b, amt, when);
+  return true;
+}
+function autoAdvance(){
+  if(state.autoPay===false) return 0;
+  let n=0, changed=false;
+  state.bills.forEach(b=>{
+    if(b.mode==='subscription') return;
+    const due=+b.due||1, idx=currentDueIndex(due);
+    if(b.lastAutoDue==null){ b.lastAutoDue=idx; changed=true; return; }  // ตั้งฐานครั้งแรก ไม่ย้อนหลัง
+    let cycles=Math.min(idx-b.lastAutoDue, 24);                          // กันพลาด ไม่เกิน 24 งวด
+    if(cycles<=0) return;
+    for(let i=0;i<cycles;i++){
+      if(!billActive(b)) break;
+      const mi=b.lastAutoDue+1+i, y=Math.floor(mi/12), m=((mi%12)+12)%12;
+      if(applyCycle(b, new Date(y,m,Math.min(due,28)))) n++;
+    }
+    b.lastAutoDue=idx; changed=true;
+  });
+  if(changed) localStorage.setItem(KEY,JSON.stringify(state));
+  return n;
+}
+// จ่ายเอง = กินโควตารอบถัดไป 1 รอบ (กันระบบตัดซ้ำ)
+function consumeCycle(b){
+  b.lastAutoDue = (b.lastAutoDue==null ? currentDueIndex(+b.due||1) : b.lastAutoDue) + 1;
+}
+function runAutoAdvance(){
+  const n=autoAdvance();
+  if(n>0){ render(); if(state.notif&&state.notif.push) syncPush(); pushCloud(); toast('⚡ ตัดรอบชำระอัตโนมัติ '+n+' งวดแล้ว'); }
+  return n;
+}
+function toggleAutoPay(){
+  state.autoPay = state.autoPay===false;              // false -> true, อื่นๆ -> false
+  if(state.autoPay) state.bills.forEach(b=>{ if(b.mode!=='subscription') b.lastAutoDue=currentDueIndex(+b.due||1); });
+  save(); updateAutoPayUI();
+  toast(state.autoPay?'เปิดตัดรอบอัตโนมัติแล้ว ⚡':'ปิดแล้ว — ต้องกดจ่ายเอง');
+}
+function updateAutoPayUI(){
+  const tog=document.getElementById('autoPayTog'); if(!tog) return;
+  const on=state.autoPay!==false;
+  tog.classList.toggle('on',on);
+  document.getElementById('autoPayState').textContent = on
+    ? 'ระบบตัดงวดให้เองทุกวันครบกำหนด ✓' : 'ปิดอยู่ — ต้องกด "จ่ายงวดนี้แล้ว" เอง';
+}
+
 function paymentStreak(){
   const ps=state.payments||[]; if(!ps.length) return 0;
   const months=new Set(ps.map(p=>p.y*12+p.m));
@@ -1819,7 +1892,8 @@ function renderDetail(id){
 
     ${done
       ? `<div class="done-banner">🎉 ผ่อนครบทุกงวดแล้ว เก่งมากเลยน้า!</div>`
-      : `<button class="btn" onclick="payInstallment(${b.id})">✅ จ่ายงวดที่ ${paid+1} แล้ว</button>`}
+      : `<button class="btn" onclick="payInstallment(${b.id})">${state.autoPay!==false?'⏭️ จ่ายล่วงหน้า 1 งวด':'✅ จ่ายงวดที่ '+(paid+1)+' แล้ว'}</button>
+         ${state.autoPay!==false?`<div style="text-align:center;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:8px;">⚡ ระบบตัดรอบให้อัตโนมัติทุกวันที่ ${b.due} — กดปุ่มนี้เฉพาะตอนอยากจ่ายล่วงหน้า</div>`:''}`}
     <div style="display:flex;gap:11px;margin-top:11px;">
       <button class="btn ghost" style="flex:1;" onclick="openSheet(${b.id})">✏️ แก้ไข</button>
       <button class="btn ghost" style="flex:1;color:var(--danger);" onclick="delBillById(${b.id})">🗑️ ลบ</button>
@@ -1834,6 +1908,7 @@ function payInstallment(id){
     if(principalPaid<=0){ toast('ยอดจ่ายยังน้อยกว่าดอกเบี้ย ยอดไม่ลดน้า 🥺'); return; }
     b.balance=Math.max(0,bal-principalPaid);
     recordPayment(b, +b.payment||0);
+    consumeCycle(b);
     save();
     if(b.balance<=0){ toast('ปิดยอดบัตรนี้ได้แล้ว เก่งมาก! 🎉'); }
     else { toast('ตัดยอดแล้ว เหลือ '+baht(b.balance)+' ✅'); }
@@ -1844,6 +1919,7 @@ function payInstallment(id){
   const payAmt=billMonthly(b);
   b.paid=paid+1;
   recordPayment(b, payAmt);
+  consumeCycle(b);
   save(); // re-renders everything incl. this detail screen
   if(b.paid>=tot){ toast('ผ่อนครบแล้ว เก่งมาก! 🎉'); }
   else { toast('บันทึกการจ่ายงวดที่ '+b.paid+' แล้ว ✅'); }
@@ -2052,7 +2128,8 @@ async function initCloud(){
       const s=j.state;                          // cloud = source of truth
       if(!s.notif) s.notif={enabled:false};
       if(!s.notifLog) s.notifLog={};
-      state=s; localStorage.setItem(KEY,JSON.stringify(state)); render();
+      if(s.autoPay===undefined) s.autoPay=true;
+      state=s; autoAdvance(); localStorage.setItem(KEY,JSON.stringify(state)); render();
     }else{
       pushCloudNow();                           // cloud empty → upload this device's data
     }
@@ -2077,8 +2154,8 @@ async function pullCloud(){
     if(j.cloud && j.state && Array.isArray(j.state.bills)){
       const incoming=JSON.stringify(j.state), current=JSON.stringify(state);
       if(incoming!==current){
-        const s=j.state; if(!s.notif)s.notif={enabled:false}; if(!s.notifLog)s.notifLog={};
-        state=s; localStorage.setItem(KEY,JSON.stringify(state)); render();
+        const s=j.state; if(!s.notif)s.notif={enabled:false}; if(!s.notifLog)s.notifLog={}; if(s.autoPay===undefined)s.autoPay=true;
+        state=s; autoAdvance(); localStorage.setItem(KEY,JSON.stringify(state)); render();
         toast('ซิงค์ข้อมูลล่าสุดแล้ว ☁️');
       }
     }
@@ -2126,7 +2203,7 @@ function go(s){
   document.getElementById('screen-'+s).classList.add('active');
   document.querySelectorAll('.nav [data-nav]').forEach(b=>b.classList.toggle('on',b.dataset.nav===s));
   document.getElementById('scroll').scrollTop=0;
-  if(s==='settings'){ document.getElementById('setIncome').value=state.income; updateNotifUI(); }
+  if(s==='settings'){ document.getElementById('setIncome').value=state.income; updateNotifUI(); updateAutoPayUI(); }
   if(s==='refi'){ const c=refiCurrent(); document.getElementById('refiCurrent').textContent = c.count?`รวมหนี้ตอนนี้ ${c.count} ก้อน · ยอด ${baht(c.principal)} · ผ่อนเดิม ${baht(c.monthly)}/เดือน`:''; document.getElementById('refiResult').innerHTML=''; }
   if(s==='history') renderHistory();
   if(s==='savings') renderSavings();
@@ -2145,13 +2222,15 @@ document.getElementById('chips').addEventListener('click',e=>{
 });
 
 /* boot */
+autoAdvance();          // ตัดรอบที่เลยกำหนดก่อนวาดหน้าจอ
 render();
 updateNotifUI();
+updateAutoPayUI();
 checkDueNotifications();
 initCloud();
 
-// re-check reminders whenever the app returns to the foreground
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkDueNotifications(); pullCloud(); } });
+// re-check reminders + ตัดรอบ whenever the app returns to the foreground
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ runAutoAdvance(); checkDueNotifications(); pullCloud(); } });
 window.addEventListener('focus',pullCloud);
 
 /* service worker */
