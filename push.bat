@@ -66,10 +66,28 @@ git add .
 git commit -m "!MSG!"
 git push -u origin main
 
-echo.
-echo ===============================================
-echo    Done. Render is now deploying the new version.
-echo    Check status at dashboard.render.com
-echo ===============================================
-echo.
+if errorlevel 1 (
+  echo.
+  echo ===============================================
+  echo    [X] PUSH FAILED - code did NOT reach GitHub
+  echo ===============================================
+  echo.
+  echo   If it says "Permission denied" you are logged in
+  echo   with the WRONG GitHub account.
+  echo.
+  echo   How to fix:
+  echo     1. Windows Search -^> "Credential Manager"
+  echo     2. Windows Credentials
+  echo     3. Find  git:https://github.com  -^> Remove
+  echo     4. Run this file again and log in as the
+  echo        account that owns the repo.
+  echo.
+) else (
+  echo.
+  echo ===============================================
+  echo    [OK] Pushed. Render will pick up the change.
+  echo    Check status at dashboard.render.com
+  echo ===============================================
+  echo.
+)
 pause
