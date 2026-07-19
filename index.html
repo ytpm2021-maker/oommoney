@@ -2046,7 +2046,7 @@ let pushBackend=null; // null=unknown, false=no backend, string=VAPID public key
 async function getVapidKey(){
   if(pushBackend!==null) return pushBackend;
   try{
-    const r=await fetch('api/vapidPublicKey',{cache:'no-store'});
+    const r=await fetch('api/vapidPublicKey?t='+Date.now(),{cache:'no-store'});
     if(!r.ok){ pushBackend=false; return false; }
     const j=await r.json(); pushBackend=j.publicKey||false; return pushBackend;
   }catch(e){ pushBackend=false; return false; }
@@ -2119,7 +2119,7 @@ async function unsubscribePush(){
 let cloudOn=false, cloudT=null, lastSaveAt=0;
 async function initCloud(){
   try{
-    const r=await fetch('api/state',{cache:'no-store'});
+    const r=await fetch('api/state?t='+Date.now(),{cache:'no-store'});
     if(!r.ok){ setCloudUI(false); return; }   // no backend (plain static host)
     const j=await r.json();
     if(!j.cloud){ setCloudUI(false); return; }
@@ -2138,6 +2138,7 @@ async function initCloud(){
 }
 function pushCloud(){
   if(!cloudOn) return;
+  lastSaveAt=Date.now();                        // กันไม่ให้ pullCloud ดึงของเก่ามาทับทันที
   clearTimeout(cloudT);
   cloudT=setTimeout(pushCloudNow, 900);         // debounce rapid saves
 }
@@ -2149,7 +2150,7 @@ function pushCloudNow(){
 async function pullCloud(){
   if(!cloudOn || Date.now()-lastSaveAt < 3000) return;   // skip right after a local save (avoid revert)
   try{
-    const r=await fetch('api/state',{cache:'no-store'}); if(!r.ok) return;
+    const r=await fetch('api/state?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return;
     const j=await r.json();
     if(j.cloud && j.state && Array.isArray(j.state.bills)){
       const incoming=JSON.stringify(j.state), current=JSON.stringify(state);

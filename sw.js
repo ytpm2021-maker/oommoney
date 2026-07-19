@@ -1,5 +1,5 @@
 /* น้องออม · Money Coach — Service Worker (offline-first) */
-const CACHE = 'oommoney-v2';
+const CACHE = 'oommoney-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -51,6 +51,12 @@ self.addEventListener('notificationclick', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+
+  // NEVER cache API calls — cloud state must always be fresh.
+  // (Caching these made pullCloud() restore stale data over fresh local edits.)
+  let u; try { u = new URL(req.url); } catch (_) { return; }
+  if (u.pathname.startsWith('/api/') || u.pathname === '/login') return;
+
   // network-first for navigation, cache-first for assets
   if (req.mode === 'navigate') {
     e.respondWith(
